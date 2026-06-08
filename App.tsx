@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -16,19 +16,24 @@ import {
   View,
 } from "react-native";
 
-import { extractReceipt } from "./services/receiptExtraction";
+import { buildImportedReceiptData, extractReceipt } from "./services/receiptExtraction";
 import type { ExtractedReceipt } from "./types/receipt";
 import type {
   Person,
   ReceiptItem,
   SplitMode,
   SplitSession,
+  TipMode,
 } from "./types/split";
+import { TIP_PERCENT_PRESETS } from "./types/split";
 import {
   calculateEvenSplit,
   calculateHybridSplit,
   calculateItemizedSplit,
+  calculateItemsSubtotal,
   formatSessionShareText,
+  formatTipSelectionLabel,
+  resolveTipAmount,
   validateItemFields,
   validateParticipantName,
   validateSplitInput,
@@ -73,6 +78,8 @@ const RECEIPT_IMAGE_OPTIONS: ImagePicker.ImagePickerOptions = {
   quality: 0.8,
 };
 
+const INITIAL_TIP_PERCENT = 18;
+
 export default function App() {
   const [mode, setMode] = useState<SplitMode>(INITIAL_MODE);
   const [people, setPeople] = useState<Person[]>([]);
@@ -82,7 +89,9 @@ export default function App() {
   const [itemPrice, setItemPrice] = useState("");
   const [billTotal, setBillTotal] = useState("");
   const [tax, setTax] = useState("");
-  const [tip, setTip] = useState("");
+  const [tipMode, setTipMode] = useState<TipMode>("percentage");
+  const [tipPercent, setTipPercent] = useState(INITIAL_TIP_PERCENT);
+  const [customTip, setCustomTip] = useState("");
   const [session, setSession] = useState<SplitSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
@@ -94,10 +103,14 @@ export default function App() {
   const [extractedReceipt, setExtractedReceipt] =
     useState<ExtractedReceipt | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const receiptItemsSectionY = useRef(0);
 
   const clearExtraction = () => {
     setExtractedReceipt(null);
     setIsExtracting(false);
+    setImportMessage(null);
   };
 
   const clearResults = () => {
@@ -128,9 +141,12 @@ export default function App() {
     setItemPrice("");
     setBillTotal("");
     setTax("");
-    setTip("");
+    setTipMode("percentage");
+    setTipPercent(INITIAL_TIP_PERCENT);
+    setCustomTip("");
     setReceiptImageUri(null);
     clearExtraction();
+    setImportMessage(null);
     cancelEditing();
     clearResults();
   };
@@ -202,25 +218,57 @@ export default function App() {
     }
   };
 
-  const useExtractedItems = () => {
+  const useExtractedReceipt = () => {
     if (!extractedReceipt) {
       return;
     }
 
+    if (extractedReceipt.items.length === 0) {
+      setError("No items were found in the extracted receipt.");
+      return;
+    }
+
+    const imported = buildImportedReceiptData(extractedReceipt, createId);
+
     setMode("itemized");
-    setItems(
-      extractedReceipt.items.map((item) => ({
-        id: createId(),
-        name: item.name,
-        price: item.price,
-        assignedTo: [],
-      })),
-    );
-    setTax(extractedReceipt.tax.toFixed(2));
-    setBillTotal(extractedReceipt.total.toFixed(2));
+    setItems(imported.items);
+    setTax(imported.tax);
+    setBillTotal(imported.billTotal);
+    setItemName("");
+    setItemPrice("");
     cancelEditing();
     clearResults();
     setError(null);
+    setImportMessage(
+      `Imported ${imported.items.length} items. Assign each one to a participant.`,
+    );
+  };
+
+  const itemsSubtotal = calculateItemsSubtotal(items);
+  const currentTipAmount = resolveTipAmount(
+    itemsSubtotal,
+    tipMode,
+    tipPercent,
+    parseAmount(customTip),
+  );
+  const extractedTipAmount = extractedReceipt
+    ? resolveTipAmount(
+        extractedReceipt.subtotal,
+        tipMode,
+        tipPercent,
+        parseAmount(customTip),
+      )
+    : 0;
+
+  const selectTipPreset = (percent: number) => {
+    setTipMode("percentage");
+    setTipPercent(percent);
+    clearResults();
+  };
+
+  const selectCustomTipMode = () => {
+    setTipMode("fixed");
+    clearResults();
   };
 
   const addPerson = () => {
@@ -370,7 +418,12 @@ export default function App() {
   const calculate = () => {
     const parsedBillTotal = parseAmount(billTotal);
     const parsedTax = parseAmount(tax);
-    const parsedTip = parseAmount(tip);
+    const parsedTip = resolveTipAmount(
+      calculateItemsSubtotal(items),
+      tipMode,
+      tipPercent,
+      parseAmount(customTip),
+    );
 
     const validationError = validateSplitInput(
       mode,
@@ -379,6 +432,8 @@ export default function App() {
       parsedBillTotal,
       parsedTax,
       parsedTip,
+      tipMode,
+      customTip,
     );
 
     if (validationError) {
@@ -434,6 +489,7 @@ export default function App() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -511,23 +567,11 @@ export default function App() {
 
                 {extractedReceipt && !isExtracting && (
                   <View style={styles.extractedCard}>
-                    <Text style={styles.extractedTitle}>Extracted Data</Text>
+                    <Text style={styles.extractedTitle}>Extracted Receipt</Text>
                     <Text style={styles.extractedRestaurant}>
                       {extractedReceipt.restaurantName}
                     </Text>
-                    <SummaryRow
-                      label="Subtotal"
-                      value={formatCurrency(extractedReceipt.subtotal)}
-                    />
-                    <SummaryRow
-                      label="Tax"
-                      value={formatCurrency(extractedReceipt.tax)}
-                    />
-                    <SummaryRow
-                      label="Total"
-                      value={formatCurrency(extractedReceipt.total)}
-                      bold
-                    />
+
                     <Text style={styles.extractedItemsTitle}>Items</Text>
                     {extractedReceipt.items.map((item, index) => (
                       <View
@@ -540,14 +584,29 @@ export default function App() {
                         </Text>
                       </View>
                     ))}
-                    <Text style={styles.rawTextLabel}>Raw text</Text>
-                    <Text style={styles.rawText}>{extractedReceipt.rawText}</Text>
+
+                    <View style={styles.extractedSummary}>
+                      <SummaryRow
+                        label="Subtotal"
+                        value={formatCurrency(extractedReceipt.subtotal)}
+                      />
+                      <SummaryRow
+                        label="Tax"
+                        value={formatCurrency(extractedReceipt.tax)}
+                      />
+                      <SummaryRow
+                        label={`Tip (${formatTipSelectionLabel(tipMode, tipPercent)})`}
+                        value={formatCurrency(extractedTipAmount)}
+                        bold
+                      />
+                    </View>
+
                     <TouchableOpacity
                       style={styles.useExtractedButton}
-                      onPress={useExtractedItems}
+                      onPress={useExtractedReceipt}
                     >
                       <Text style={styles.useExtractedButtonText}>
-                        Use Extracted Items
+                        Use Extracted Receipt
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -693,8 +752,26 @@ export default function App() {
 
           {showItemizedFields && (
             <>
-              <View style={styles.section}>
+              <View
+                style={styles.section}
+                onLayout={(event) => {
+                  const sectionY = event.nativeEvent.layout.y;
+                  receiptItemsSectionY.current = sectionY;
+
+                  if (importMessage) {
+                    scrollViewRef.current?.scrollTo({
+                      y: sectionY,
+                      animated: true,
+                    });
+                  }
+                }}
+              >
                 <Text style={styles.sectionTitle}>Receipt Items</Text>
+                {importMessage && (
+                  <View style={styles.importMessageBox}>
+                    <Text style={styles.importMessageText}>{importMessage}</Text>
+                  </View>
+                )}
                 <TextInput
                   style={styles.input}
                   placeholder="Item name"
@@ -831,18 +908,72 @@ export default function App() {
                   }}
                   keyboardType="decimal-pad"
                 />
-                <Text style={[styles.label, styles.inputSpacing]}>Tip ($)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 15.00"
-                  placeholderTextColor="#64748b"
-                  value={tip}
-                  onChangeText={(value) => {
-                    setTip(value);
-                    clearResults();
-                  }}
-                  keyboardType="decimal-pad"
-                />
+
+                <Text style={[styles.label, styles.inputSpacing]}>Tip</Text>
+                <View style={styles.chipRow}>
+                  {TIP_PERCENT_PRESETS.map((percent) => {
+                    const selected =
+                      tipMode === "percentage" && tipPercent === percent;
+                    return (
+                      <TouchableOpacity
+                        key={percent}
+                        style={[styles.chip, selected && styles.chipSelected]}
+                        onPress={() => selectTipPreset(percent)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            selected && styles.chipTextSelected,
+                          ]}
+                        >
+                          {percent}%
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      tipMode === "fixed" && styles.chipSelected,
+                    ]}
+                    onPress={selectCustomTipMode}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        tipMode === "fixed" && styles.chipTextSelected,
+                      ]}
+                    >
+                      Custom
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {tipMode === "percentage" ? (
+                  <Text style={styles.calculatedTipText}>
+                    Calculated tip: {formatCurrency(currentTipAmount)}
+                    {itemsSubtotal > 0
+                      ? ` (${tipPercent}% of ${formatCurrency(itemsSubtotal)})`
+                      : " — add items to calculate"}
+                  </Text>
+                ) : (
+                  <>
+                    <TextInput
+                      style={[styles.input, styles.inputSpacing]}
+                      placeholder="Custom tip amount"
+                      placeholderTextColor="#64748b"
+                      value={customTip}
+                      onChangeText={(value) => {
+                        setCustomTip(value);
+                        clearResults();
+                      }}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text style={styles.calculatedTipText}>
+                      Tip amount: {formatCurrency(parseAmount(customTip))}
+                    </Text>
+                  </>
+                )}
               </View>
             </>
           )}
@@ -1021,6 +1152,19 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 12,
   },
+  importMessageBox: {
+    backgroundColor: "#14532d",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+  },
+  importMessageText: {
+    color: "#dcfce7",
+    fontSize: 13,
+    lineHeight: 18,
+  },
   receiptPickerRow: {
     gap: 10,
   },
@@ -1130,8 +1274,20 @@ const styles = StyleSheet.create({
     color: "#cbd5e1",
     fontSize: 14,
     fontWeight: "600",
-    marginTop: 10,
+    marginTop: 4,
     marginBottom: 6,
+  },
+  extractedSummary: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#334155",
+  },
+  calculatedTipText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
   },
   extractedItemRow: {
     flexDirection: "row",
@@ -1148,19 +1304,6 @@ const styles = StyleSheet.create({
   extractedItemPrice: {
     color: "#e2e8f0",
     fontSize: 14,
-  },
-  rawTextLabel: {
-    color: "#94a3b8",
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  rawText: {
-    color: "#64748b",
-    fontSize: 12,
-    lineHeight: 18,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   useExtractedButton: {
     backgroundColor: "#22c55e",

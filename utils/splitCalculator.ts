@@ -4,6 +4,7 @@ import type {
   ReceiptItem,
   ReceiptSummary,
   SplitSession,
+  TipMode,
 } from "../types/split";
 
 const CENTS = 100;
@@ -66,6 +67,40 @@ function distributeCents(totalCents: number, weights: number[]): number[] {
   }
 
   return shares;
+}
+
+/** Sum receipt item prices to get the food subtotal. */
+export function calculateItemsSubtotal(items: ReceiptItem[]): number {
+  return round2(items.reduce((sum, item) => sum + item.price, 0));
+}
+
+/**
+ * Resolve the tip dollar amount from percentage or fixed custom input.
+ * Percentage tips are based on the receipt subtotal.
+ */
+export function resolveTipAmount(
+  subtotal: number,
+  tipMode: TipMode,
+  tipPercent: number,
+  customTipAmount: number,
+): number {
+  if (tipMode === "percentage") {
+    return round2(subtotal * (tipPercent / 100));
+  }
+
+  return round2(customTipAmount);
+}
+
+/** Human-readable label for the current tip selection. */
+export function formatTipSelectionLabel(
+  tipMode: TipMode,
+  tipPercent: number,
+): string {
+  if (tipMode === "percentage") {
+    return `${tipPercent}%`;
+  }
+
+  return "Custom";
 }
 
 function buildSummary(
@@ -311,6 +346,8 @@ export function validateSplitInput(
   billTotal: number,
   tax: number,
   tip: number,
+  _tipMode: TipMode = "percentage",
+  _customTipInput = "",
 ): string | null {
   if (people.length < 2) {
     return "Add at least 2 participants before calculating.";

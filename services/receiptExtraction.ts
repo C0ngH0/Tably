@@ -1,4 +1,39 @@
-import type { ExtractedReceipt } from "../types/receipt";
+import type { ExtractedReceipt, ExtractedReceiptItem } from "../types/receipt";
+import type { ReceiptItem } from "../types/split";
+
+export type ImportedReceiptData = {
+  items: ReceiptItem[];
+  tax: string;
+  billTotal: string;
+  subtotal: number;
+};
+
+function mapExtractedItemToReceiptItem(
+  item: ExtractedReceiptItem,
+  createId: () => string,
+): ReceiptItem {
+  return {
+    id: createId(),
+    name: item.name.trim(),
+    price: item.price,
+    assignedTo: [],
+  };
+}
+
+/** Map extracted OCR data into the app's receipt item shape. */
+export function buildImportedReceiptData(
+  extracted: ExtractedReceipt,
+  createId: () => string,
+): ImportedReceiptData {
+  return {
+    items: extracted.items.map((item) =>
+      mapExtractedItemToReceiptItem(item, createId),
+    ),
+    tax: extracted.tax.toFixed(2),
+    billTotal: extracted.total.toFixed(2),
+    subtotal: extracted.subtotal,
+  };
+}
 
 /** Simulated OCR delay so the loading state feels realistic. */
 const MOCK_EXTRACTION_DELAY_MS = 1500;

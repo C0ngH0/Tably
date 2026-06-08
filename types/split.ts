@@ -13,6 +13,12 @@ export type ReceiptItem = {
 
 export type SplitMode = "even" | "itemized" | "hybrid";
 
+export type TipMode = "percentage" | "fixed";
+
+export const TIP_PERCENT_PRESETS = [15, 18, 20, 22, 25] as const;
+
+export type TipPercentPreset = (typeof TIP_PERCENT_PRESETS)[number];
+
 export type PersonTotal = {
   personId: string;
   name: string;
