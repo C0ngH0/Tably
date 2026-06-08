@@ -210,9 +210,13 @@ export default function App() {
     try {
       const data = await extractReceipt(receiptImageUri);
       setExtractedReceipt(data);
-    } catch {
+    } catch (error) {
       setExtractedReceipt(null);
-      setError("Could not extract receipt data. Try again or enter items manually.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Could not extract receipt data. Try again or enter items manually.",
+      );
     } finally {
       setIsExtracting(false);
     }

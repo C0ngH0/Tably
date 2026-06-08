@@ -1,6 +1,11 @@
 import type { ExtractedReceipt, ExtractedReceiptItem } from "../types/receipt";
 import type { ReceiptItem } from "../types/split";
 
+/** Change this if your Mac's local IP changes (same Wi‑Fi as your phone). */
+export const API_BASE_URL = "http://192.168.1.9:3001";
+
+const RECEIPT_EXTRACT_ENDPOINT = `${API_BASE_URL}/api/receipt/extract`;
+
 export type ImportedReceiptData = {
   items: ReceiptItem[];
   tax: string;
@@ -35,56 +40,96 @@ export function buildImportedReceiptData(
   };
 }
 
-/** Simulated OCR delay so the loading state feels realistic. */
-const MOCK_EXTRACTION_DELAY_MS = 1500;
+function isExtractedReceipt(data: unknown): data is ExtractedReceipt {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
 
-const MOCK_EXTRACTED_RECEIPT: ExtractedReceipt = {
-  restaurantName: "The Corner Bistro",
-  rawText: [
-    "THE CORNER BISTRO",
-    "123 Main Street",
-    "",
-    "Classic Burger        14.50",
-    "Caesar Salad          11.00",
-    "Iced Tea               3.50",
-    "Garlic Fries           6.50",
-    "Chocolate Cake         7.00",
-    "",
-    "Subtotal              42.50",
-    "Tax                    3.61",
-    "Total                 46.11",
-    "",
-    "Thank you!",
-  ].join("\n"),
-  subtotal: 42.5,
-  tax: 3.61,
-  total: 46.11,
-  items: [
-    { name: "Classic Burger", price: 14.5 },
-    { name: "Caesar Salad", price: 11.0 },
-    { name: "Iced Tea", price: 3.5 },
-    { name: "Garlic Fries", price: 6.5 },
-    { name: "Chocolate Cake", price: 7.0 },
-  ],
-};
+  const receipt = data as Record<string, unknown>;
+
+  return (
+    typeof receipt.restaurantName === "string" &&
+    typeof receipt.rawText === "string" &&
+    typeof receipt.subtotal === "number" &&
+    typeof receipt.tax === "number" &&
+    typeof receipt.total === "number" &&
+    Array.isArray(receipt.items)
+  );
+}
 
 /**
- * Extract receipt data from an image.
- *
- * Phase 3 uses mock data. In a future phase this will send the image to a
- * secure backend that calls AWS Textract — credentials stay off the device.
+ * Extract receipt data by calling the SplitSnap backend.
+ * AWS Textract will be added on the server in a future phase.
  */
 export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt> {
   if (!imageUri) {
     throw new Error("A receipt image is required for extraction.");
   }
 
-  await new Promise((resolve) => {
-    setTimeout(resolve, MOCK_EXTRACTION_DELAY_MS);
-  });
+  console.log("[receiptExtraction] Calling endpoint:", RECEIPT_EXTRACT_ENDPOINT);
+
+  let response: Response;
+
+  try {
+    response = await fetch(RECEIPT_EXTRACT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ imageUri }),
+    });
+  } catch (error) {
+    console.error(
+      "[receiptExtraction] Network request failed:",
+      RECEIPT_EXTRACT_ENDPOINT,
+      error,
+    );
+
+    throw new Error(
+      `Could not reach the SplitSnap server at ${API_BASE_URL}. Make sure the backend is running, the URL includes port 3001, and your phone is on the same Wi‑Fi network.`,
+    );
+  }
+
+  if (!response.ok) {
+    let message = `Receipt extraction failed (${response.status}).`;
+
+    try {
+      const errorBody = (await response.json()) as { error?: string };
+      if (errorBody.error) {
+        message = errorBody.error;
+      }
+    } catch (parseError) {
+      console.error(
+        "[receiptExtraction] Failed to parse error response:",
+        parseError,
+      );
+    }
+
+    console.error(
+      "[receiptExtraction] HTTP error:",
+      response.status,
+      message,
+    );
+
+    throw new Error(message);
+  }
+
+  let data: unknown;
+
+  try {
+    data = await response.json();
+  } catch (error) {
+    console.error("[receiptExtraction] Failed to parse success response:", error);
+    throw new Error("Server returned an unreadable response.");
+  }
+
+  if (!isExtractedReceipt(data)) {
+    console.error("[receiptExtraction] Invalid response shape:", data);
+    throw new Error("Server returned an invalid receipt format.");
+  }
 
   return {
-    ...MOCK_EXTRACTED_RECEIPT,
-    items: MOCK_EXTRACTED_RECEIPT.items.map((item) => ({ ...item })),
+    ...data,
+    items: data.items.map((item) => ({ ...item })),
   };
 }
