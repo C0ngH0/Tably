@@ -25,6 +25,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SplitSnap uses your photo library so you can attach receipt images.",
+          "cameraPermission": "SplitSnap uses your camera so you can photograph receipts.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
