@@ -5,6 +5,7 @@ import type { ReceiptItem } from "../types/split";
 export const API_BASE_URL = "http://192.168.1.9:3001";
 
 const RECEIPT_EXTRACT_ENDPOINT = `${API_BASE_URL}/api/receipt/extract`;
+const RECEIPT_IMAGE_FIELD_NAME = "image";
 
 export type ImportedReceiptData = {
   items: ReceiptItem[];
@@ -57,6 +58,18 @@ function isExtractedReceipt(data: unknown): data is ExtractedReceipt {
   );
 }
 
+function createReceiptImageFormData(imageUri: string): FormData {
+  const formData = new FormData();
+
+  formData.append(RECEIPT_IMAGE_FIELD_NAME, {
+    uri: imageUri,
+    name: "receipt.jpg",
+    type: "image/jpeg",
+  } as unknown as Blob);
+
+  return formData;
+}
+
 /**
  * Extract receipt data by calling the SplitSnap backend.
  * AWS Textract will be added on the server in a future phase.
@@ -71,12 +84,12 @@ export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt
   let response: Response;
 
   try {
+    const formData = createReceiptImageFormData(imageUri);
+
     response = await fetch(RECEIPT_EXTRACT_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ imageUri }),
+      // Do not set Content-Type manually; React Native adds the multipart boundary.
+      body: formData,
     });
   } catch (error) {
     console.error(
