@@ -590,6 +590,14 @@ export default function App() {
                     ))}
 
                     <View style={styles.extractedSummary}>
+                      {extractedReceipt.validation && (
+                        <SummaryRow
+                          label="Item subtotal"
+                          value={formatCurrency(
+                            extractedReceipt.validation.itemSubtotal,
+                          )}
+                        />
+                      )}
                       <SummaryRow
                         label="Subtotal"
                         value={formatCurrency(extractedReceipt.subtotal)}
@@ -599,11 +607,40 @@ export default function App() {
                         value={formatCurrency(extractedReceipt.tax)}
                       />
                       <SummaryRow
+                        label="Total"
+                        value={formatCurrency(extractedReceipt.total)}
+                        bold
+                      />
+                      <SummaryRow
                         label={`Tip (${formatTipSelectionLabel(tipMode, tipPercent)})`}
                         value={formatCurrency(extractedTipAmount)}
                         bold
                       />
                     </View>
+
+                    {extractedReceipt.validation?.hasMismatch && (
+                      <View style={styles.validationWarningBox}>
+                        <Text style={styles.validationWarningTitle}>
+                          Review extracted items
+                        </Text>
+                        {extractedReceipt.validation.warnings.map(
+                          (warning, index) => (
+                            <Text
+                              key={`${warning}-${index}`}
+                              style={styles.validationWarningText}
+                            >
+                              {warning}
+                            </Text>
+                          ),
+                        )}
+                        <Text style={styles.validationWarningText}>
+                          Difference:{" "}
+                          {formatCurrency(
+                            extractedReceipt.validation.difference,
+                          )}
+                        </Text>
+                      </View>
+                    )}
 
                     <TouchableOpacity
                       style={styles.useExtractedButton}
@@ -1286,6 +1323,25 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#334155",
+  },
+  validationWarningBox: {
+    backgroundColor: "#451a03",
+    borderWidth: 1,
+    borderColor: "#f97316",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  validationWarningTitle: {
+    color: "#fed7aa",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  validationWarningText: {
+    color: "#ffedd5",
+    fontSize: 13,
+    lineHeight: 18,
   },
   calculatedTipText: {
     color: "#93c5fd",
