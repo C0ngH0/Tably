@@ -107,8 +107,9 @@ function buildReceiptValidation(receipt: ExtractedReceipt): ReceiptValidation {
         : 0;
   const subtotalDifference =
     receipt.subtotal > 0 ? roundCurrency(receipt.subtotal - itemSubtotal) : 0;
+  const hasTotalMismatch = Math.abs(difference) > MISMATCH_THRESHOLD;
 
-  if (Math.abs(difference) > MISMATCH_THRESHOLD) {
+  if (hasTotalMismatch) {
     warnings.push("Parsed items do not add up to the receipt total.");
   }
 
@@ -120,7 +121,7 @@ function buildReceiptValidation(receipt: ExtractedReceipt): ReceiptValidation {
     itemSubtotal,
     expectedTotal,
     difference,
-    hasMismatch: warnings.length > 0,
+    hasMismatch: hasTotalMismatch,
     warnings,
   };
 }
@@ -177,9 +178,12 @@ function validateRepairResponse(data: unknown): OpenAIRepairResponse {
     throw new Error("OpenAI repair response contains invalid totals.");
   }
 
-  if (!Array.isArray(candidate.repairNotes)) {
-    throw new Error("OpenAI repair response repairNotes must be an array.");
-  }
+  const repairNotes =
+    typeof candidate.repairNotes === "string"
+      ? [candidate.repairNotes]
+      : Array.isArray(candidate.repairNotes)
+        ? candidate.repairNotes
+        : [];
 
   return {
     restaurantName: candidate.restaurantName.trim(),
@@ -187,7 +191,7 @@ function validateRepairResponse(data: unknown): OpenAIRepairResponse {
     subtotal: roundCurrency(candidate.subtotal),
     tax: roundCurrency(candidate.tax),
     total: roundCurrency(candidate.total),
-    repairNotes: candidate.repairNotes
+    repairNotes: repairNotes
       .filter((note): note is string => typeof note === "string")
       .map((note) => note.trim())
       .filter(Boolean),
@@ -202,6 +206,7 @@ function buildRepairPrompt(input: RepairInput): string {
         "Add missing line items when rawText clearly shows an item name and price.",
         "Do not invent items, prices, taxes, or totals.",
         "Return strict JSON only with restaurantName, items, subtotal, tax, total, repairNotes.",
+        "repairNotes must be an array of strings. Use [] if there are no repair notes.",
       ],
       rawText: input.rawText,
       detectedFields: input.detectedFields,

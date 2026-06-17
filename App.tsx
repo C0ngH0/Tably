@@ -618,7 +618,9 @@ export default function App() {
                       />
                     </View>
 
-                    {extractedReceipt.validation?.hasMismatch && (
+                    {extractedReceipt.validation?.hasMismatch &&
+                      Math.abs(extractedReceipt.validation.difference) >
+                        0.01 && (
                       <View style={styles.validationWarningBox}>
                         <Text style={styles.validationWarningTitle}>
                           Review extracted items

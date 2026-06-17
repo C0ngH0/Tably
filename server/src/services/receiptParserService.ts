@@ -98,8 +98,9 @@ function buildReceiptValidation(receipt: ExtractedReceipt): ReceiptValidation {
         : 0;
   const subtotalDifference =
     receipt.subtotal > 0 ? roundCurrency(receipt.subtotal - itemSubtotal) : 0;
+  const hasTotalMismatch = Math.abs(difference) > MISMATCH_THRESHOLD;
 
-  if (Math.abs(difference) > MISMATCH_THRESHOLD) {
+  if (hasTotalMismatch) {
     warnings.push("Parsed items do not add up to the receipt total.");
   }
 
@@ -111,7 +112,7 @@ function buildReceiptValidation(receipt: ExtractedReceipt): ReceiptValidation {
     itemSubtotal,
     expectedTotal,
     difference,
-    hasMismatch: warnings.length > 0,
+    hasMismatch: hasTotalMismatch,
     warnings,
   };
 }
