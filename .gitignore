@@ -43,3 +43,4 @@ AGENTS.md
 .cursor/
 .claude/
 CLAUDE.md
+server/.env
