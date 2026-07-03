@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -17,6 +17,11 @@ import {
 } from "react-native";
 
 import { buildImportedReceiptData, extractReceipt } from "./services/receiptExtraction";
+import {
+  deleteSplitSession,
+  getSavedSplitSessions,
+  saveSplitSession,
+} from "./services/splitStorage";
 import type { ExtractedReceipt } from "./types/receipt";
 import type {
   Person,
@@ -50,6 +55,43 @@ function parseAmount(value: string) {
 
 function formatCurrency(amount: number) {
   return `$${amount.toFixed(2)}`;
+}
+
+function formatSavedDate(value: string) {
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function cleanRestaurantName(name: string) {
+  return name.replace(/\s+/g, " ").trim();
+}
+
+function getValidRestaurantName(name: string) {
+  const cleaned = cleanRestaurantName(name);
+
+  if (cleaned.length < 3) {
+    return "";
+  }
+
+  const characters = cleaned.replace(/\s/g, "");
+  if (characters.length === 0) {
+    return "";
+  }
+
+  const numberCount = (characters.match(/\d/g) ?? []).length;
+  const letterCount = (characters.match(/[a-z]/gi) ?? []).length;
+  const symbolCount = characters.length - numberCount - letterCount;
+  const mostlyNumbers = numberCount / characters.length > 0.5;
+  const mostlySymbols = symbolCount / characters.length > 0.5;
+
+  if (mostlyNumbers || mostlySymbols || letterCount === 0) {
+    return "";
+  }
+
+  return cleaned;
 }
 
 const MODE_OPTIONS: { mode: SplitMode; label: string; description: string }[] = [
@@ -93,6 +135,8 @@ export default function App() {
   const [tipPercent, setTipPercent] = useState(INITIAL_TIP_PERCENT);
   const [customTip, setCustomTip] = useState("");
   const [session, setSession] = useState<SplitSession | null>(null);
+  const [savedSessions, setSavedSessions] = useState<SplitSession[]>([]);
+  const [savedStatus, setSavedStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingPersonName, setEditingPersonName] = useState("");
@@ -107,6 +151,19 @@ export default function App() {
   const scrollViewRef = useRef<ScrollView>(null);
   const receiptItemsSectionY = useRef(0);
 
+  const refreshSavedSessions = async () => {
+    try {
+      const saved = await getSavedSplitSessions();
+      setSavedSessions(saved);
+    } catch {
+      setError("Could not load saved splits.");
+    }
+  };
+
+  useEffect(() => {
+    void refreshSavedSessions();
+  }, []);
+
   const clearExtraction = () => {
     setExtractedReceipt(null);
     setIsExtracting(false);
@@ -116,6 +173,7 @@ export default function App() {
   const clearResults = () => {
     setSession(null);
     setError(null);
+    setSavedStatus(null);
   };
 
   const cancelEditing = () => {
@@ -273,6 +331,59 @@ export default function App() {
   const selectCustomTipMode = () => {
     setTipMode("fixed");
     clearResults();
+  };
+
+  const getCurrentRestaurantName = () =>
+    extractedReceipt?.restaurantName || session?.restaurantName || "";
+
+  const hasReceiptContext = () => Boolean(receiptImageUri || extractedReceipt);
+
+  const buildSessionTitle = (
+    restaurantName: string,
+    createdAt: string,
+    hasReceipt: boolean,
+  ) => {
+    const validRestaurantName = getValidRestaurantName(restaurantName);
+
+    if (validRestaurantName) {
+      return validRestaurantName;
+    }
+
+    return `${hasReceipt ? "Receipt" : "Manual"} Split - ${formatSavedDate(
+      createdAt,
+    )}`;
+  };
+
+  const normalizeSessionForSave = (
+    sourceSession: SplitSession,
+    updatedAt: string,
+  ): SplitSession => {
+    const createdAt = sourceSession.createdAt || updatedAt;
+    const restaurantName = getValidRestaurantName(
+      getCurrentRestaurantName() || sourceSession.restaurantName || "",
+    );
+
+    return {
+      id: sourceSession.id || createId(),
+      title:
+        sourceSession.title ||
+        buildSessionTitle(restaurantName, createdAt, hasReceiptContext()),
+      createdAt,
+      updatedAt,
+      restaurantName,
+      paymentStatus: sourceSession.paymentStatus,
+      mode: sourceSession.mode,
+      people: sourceSession.people,
+      items: sourceSession.items,
+      billTotal: sourceSession.billTotal,
+      tax: sourceSession.tax,
+      tip: sourceSession.tip,
+      tipMode: sourceSession.tipMode || tipMode,
+      tipPercent: sourceSession.tipPercent ?? tipPercent,
+      customTip: sourceSession.customTip ?? parseAmount(customTip),
+      personTotals: sourceSession.personTotals,
+      summary: sourceSession.summary,
+    };
   };
 
   const addPerson = () => {
@@ -456,13 +567,26 @@ export default function App() {
       result = calculateHybridSplit(items, people, parsedTax, parsedTip);
     }
 
+    const now = new Date().toISOString();
+    const restaurantName = getValidRestaurantName(getCurrentRestaurantName());
+
     setSession({
+      id: session?.id ?? createId(),
+      title:
+        session?.title ??
+        buildSessionTitle(restaurantName, now, hasReceiptContext()),
+      createdAt: session?.createdAt ?? now,
+      updatedAt: now,
+      restaurantName,
       mode,
       people,
       items,
       billTotal: parsedBillTotal,
       tax: parsedTax,
       tip: parsedTip,
+      tipMode,
+      tipPercent,
+      customTip: parseAmount(customTip),
       personTotals: result.personTotals,
       summary: result.summary,
     });
@@ -481,6 +605,91 @@ export default function App() {
       });
     } catch {
       Alert.alert("Unable to share", "Something went wrong while sharing results.");
+    }
+  };
+
+  const saveCurrentSplit = async () => {
+    console.log("[splitHistory] Save Split pressed");
+    console.log("[splitHistory] session exists:", Boolean(session));
+
+    if (!session) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const sessionToSave = normalizeSessionForSave(session, now);
+
+    console.log("[splitHistory] sessionToSave metadata:", {
+      id: sessionToSave.id,
+      title: sessionToSave.title,
+      createdAt: sessionToSave.createdAt,
+      updatedAt: sessionToSave.updatedAt,
+      peopleCount: sessionToSave.people.length,
+      itemCount: sessionToSave.items.length,
+      finalTotal: sessionToSave.summary.finalTotal,
+    });
+
+    try {
+      console.log("[splitHistory] Calling saveSplitSession");
+      await saveSplitSession(sessionToSave);
+      setSession(sessionToSave);
+      const saved = await getSavedSplitSessions();
+      console.log("[splitHistory] Saved sessions after save:", saved.length);
+      setSavedSessions(saved);
+      setSavedStatus("Split saved.");
+      setError(null);
+    } catch (error) {
+      console.error("[splitHistory] Failed to save split:", error);
+      setSavedStatus(null);
+      setError("Could not save this split.");
+    }
+  };
+
+  const loadSavedSplit = (savedSession: SplitSession) => {
+    const safeTipMode = savedSession.tipMode || "percentage";
+    const safeTipPercent = savedSession.tipPercent ?? INITIAL_TIP_PERCENT;
+    const safeCustomTip = savedSession.customTip ?? 0;
+
+    setMode(savedSession.mode);
+    setPeople(savedSession.people);
+    setItems(savedSession.items);
+    setBillTotal(savedSession.billTotal.toFixed(2));
+    setTax(savedSession.tax.toFixed(2));
+    setTipMode(safeTipMode);
+    setTipPercent(safeTipPercent);
+    setCustomTip(
+      safeTipMode === "fixed"
+        ? safeCustomTip.toFixed(2)
+        : "",
+    );
+    setSession({
+      ...savedSession,
+      tipMode: safeTipMode,
+      tipPercent: safeTipPercent,
+      customTip: safeCustomTip,
+    });
+    setPersonName("");
+    setItemName("");
+    setItemPrice("");
+    setReceiptImageUri(null);
+    setExtractedReceipt(null);
+    setImportMessage(null);
+    setSavedStatus("Saved split loaded.");
+    cancelEditing();
+    setError(null);
+  };
+
+  const deleteSavedSplit = async (sessionId: string) => {
+    try {
+      await deleteSplitSession(sessionId);
+      await refreshSavedSessions();
+      if (session?.id === sessionId) {
+        setSession(null);
+      }
+      setSavedStatus("Saved split deleted.");
+      setError(null);
+    } catch {
+      setError("Could not delete saved split.");
     }
   };
 
@@ -1098,8 +1307,55 @@ export default function App() {
                   </View>
                 ))}
               </View>
+
+              <TouchableOpacity
+                style={styles.saveSplitButton}
+                onPress={saveCurrentSplit}
+              >
+                <Text style={styles.saveSplitButtonText}>Save Split</Text>
+              </TouchableOpacity>
             </>
           )}
+
+          {savedStatus && (
+            <View style={styles.successBox}>
+              <Text style={styles.successText}>{savedStatus}</Text>
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Saved Splits</Text>
+            {savedSessions.length === 0 ? (
+              <Text style={styles.emptyText}>No saved splits yet.</Text>
+            ) : (
+              savedSessions.map((savedSession) => (
+                <View key={savedSession.id} style={styles.savedSplitCard}>
+                  <TouchableOpacity
+                    style={styles.savedSplitMain}
+                    onPress={() => loadSavedSplit(savedSession)}
+                  >
+                    <Text style={styles.savedSplitTitle}>
+                      {savedSession.title ||
+                        savedSession.restaurantName ||
+                        "Untitled split"}
+                    </Text>
+                    <Text style={styles.savedSplitMeta}>
+                      {formatSavedDate(savedSession.createdAt)} ·{" "}
+                      {savedSession.people.length} people
+                    </Text>
+                    <Text style={styles.savedSplitTotal}>
+                      {formatCurrency(savedSession.summary.finalTotal)}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => deleteSavedSplit(savedSession.id)}
+                  >
+                    <Text style={styles.removeText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1592,6 +1848,60 @@ const styles = StyleSheet.create({
   calculateButtonText: {
     color: "#ffffff",
     fontSize: 17,
+    fontWeight: "700",
+  },
+  saveSplitButton: {
+    backgroundColor: "#22c55e",
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  saveSplitButtonText: {
+    color: "#052e16",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  successBox: {
+    backgroundColor: "#14532d",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+  },
+  successText: {
+    color: "#dcfce7",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  savedSplitCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    gap: 12,
+  },
+  savedSplitMain: {
+    flex: 1,
+  },
+  savedSplitTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  savedSplitMeta: {
+    color: "#94a3b8",
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  savedSplitTotal: {
+    color: "#22c55e",
+    fontSize: 15,
     fontWeight: "700",
   },
   resultCard: {

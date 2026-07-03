@@ -37,13 +37,24 @@ export type ReceiptSummary = {
   difference: number;
 };
 
+export type PaymentStatus = "unpaid" | "partial" | "paid";
+
 export type SplitSession = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  restaurantName: string;
+  paymentStatus?: PaymentStatus;
   mode: SplitMode;
   people: Person[];
   items: ReceiptItem[];
   billTotal: number;
   tax: number;
   tip: number;
+  tipMode: TipMode;
+  tipPercent: number;
+  customTip: number;
   personTotals: PersonTotal[];
   summary: ReceiptSummary;
 };
