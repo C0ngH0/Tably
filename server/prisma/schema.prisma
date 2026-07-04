@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SplitType {
+  EVEN
+  ITEMIZED
+  HYBRID
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  CANCELED
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String?        @unique
+  displayName  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  splitSessions SplitSession[]
+  participants  Participant[]
+}
+
+model SplitSession {
+  id             String        @id @default(uuid()) @db.Uuid
+  ownerUserId    String?       @db.Uuid
+  title          String
+  splitType      SplitType
+  restaurantName String?
+  subtotal       Decimal       @db.Decimal(10, 2)
+  tax            Decimal       @default(0) @db.Decimal(10, 2)
+  tip            Decimal       @default(0) @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner          User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  participants   Participant[]
+  receiptItems   ReceiptItem[]
+  payments       Payment[]
+
+  @@index([ownerUserId])
+  @@index([createdAt])
+}
+
+model Participant {
+  id             String           @id @default(uuid()) @db.Uuid
+  splitSessionId String           @db.Uuid
+  userId         String?          @db.Uuid
+  displayName    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  splitSession   SplitSession     @relation(fields: [splitSessionId], references: [id], onDelete: Cascade)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  itemAssignments ItemAssignment[]
+  paymentsSent   Payment[]        @relation("PaymentsSent")
+  paymentsReceived Payment[]      @relation("PaymentsReceived")
+
+  @@index([splitSessionId])
+  @@index([userId])
+}
+
+model ReceiptItem {
+  id             String           @id @default(uuid()) @db.Uuid
+  splitSessionId String           @db.Uuid
+  name           String
+  quantity       Decimal          @default(1) @db.Decimal(10, 3)
+  unitPrice      Decimal?         @db.Decimal(10, 2)
+  totalPrice     Decimal          @db.Decimal(10, 2)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  splitSession   SplitSession     @relation(fields: [splitSessionId], references: [id], onDelete: Cascade)
+  assignments    ItemAssignment[]
+
+  @@index([splitSessionId])
+}
+
+model ItemAssignment {
+  id            String      @id @default(uuid()) @db.Uuid
+  receiptItemId String      @db.Uuid
+  participantId String      @db.Uuid
+  shareQuantity Decimal?    @db.Decimal(10, 3)
+  amount        Decimal     @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  receiptItem   ReceiptItem @relation(fields: [receiptItemId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([receiptItemId, participantId])
+  @@index([participantId])
+}
+
+model Payment {
+  id                  String        @id @default(uuid()) @db.Uuid
+  splitSessionId      String        @db.Uuid
+  fromParticipantId   String        @db.Uuid
+  toParticipantId     String        @db.Uuid
+  amount              Decimal       @db.Decimal(10, 2)
+  status              PaymentStatus @default(PENDING)
+  note                String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  splitSession        SplitSession  @relation(fields: [splitSessionId], references: [id], onDelete: Cascade)
+  fromParticipant     Participant   @relation("PaymentsSent", fields: [fromParticipantId], references: [id], onDelete: Cascade)
+  toParticipant       Participant   @relation("PaymentsReceived", fields: [toParticipantId], references: [id], onDelete: Cascade)
+
+  @@index([splitSessionId])
+  @@index([fromParticipantId])
+  @@index([toParticipantId])
+}
