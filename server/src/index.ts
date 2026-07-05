@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 
 import receiptRoutes from "./routes/receiptRoutes";
+import splitSessionRoutes from "./routes/splitSessionRoutes";
 
 const envPath = path.resolve(__dirname, "../.env");
 const dotenvResult = dotenv.config({ path: envPath, override: true });
@@ -95,6 +96,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/receipt", receiptRoutes);
+app.use("/api/split-sessions", splitSessionRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });

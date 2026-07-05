@@ -631,8 +631,8 @@ export default function App() {
 
     try {
       console.log("[splitHistory] Calling saveSplitSession");
-      await saveSplitSession(sessionToSave);
-      setSession(sessionToSave);
+      const savedSession = await saveSplitSession(sessionToSave);
+      setSession(savedSession);
       const saved = await getSavedSplitSessions();
       console.log("[splitHistory] Saved sessions after save:", saved.length);
       setSavedSessions(saved);

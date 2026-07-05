@@ -1,3 +1,5 @@
+import type { SplitMode as ApiSplitMode } from "../shared/types/splitSession";
+
 export type Person = {
   id: string;
   name: string;
@@ -11,7 +13,7 @@ export type ReceiptItem = {
   assignedTo: string[];
 };
 
-export type SplitMode = "even" | "itemized" | "hybrid";
+export type SplitMode = ApiSplitMode;
 
 export type TipMode = "percentage" | "fixed";
 

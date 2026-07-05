@@ -1,8 +1,15 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import type { SplitSession } from "../types/split";
-
-const SAVED_SPLITS_KEY = "splitsnap:saved-splits";
+import {
+  createSplitSession,
+  deleteSplitSession as deleteSplitSessionFromApi,
+  getSplitSessions,
+  updateSplitSession,
+} from "./splitSessionApi";
+import {
+  apiDtoToSplitSession,
+  splitSessionToCreateRequest,
+  splitSessionToUpdateRequest,
+} from "./splitSessionMapper";
 
 function sortByUpdatedAtDesc(sessions: SplitSession[]) {
   return [...sessions].sort(
@@ -11,49 +18,49 @@ function sortByUpdatedAtDesc(sessions: SplitSession[]) {
   );
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 export async function getSavedSplitSessions(): Promise<SplitSession[]> {
-  const rawValue = await AsyncStorage.getItem(SAVED_SPLITS_KEY);
-
-  if (!rawValue) {
-    console.log("[splitStorage] No saved sessions found");
-    return [];
-  }
-
-  const parsed = JSON.parse(rawValue) as unknown;
-
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-
-  const sessions = sortByUpdatedAtDesc(parsed as SplitSession[]);
+  const sessions = sortByUpdatedAtDesc(
+    (await getSplitSessions()).map(apiDtoToSplitSession),
+  );
   console.log("[splitStorage] Loaded saved sessions:", sessions.length);
   return sessions;
 }
 
-export async function saveSplitSession(session: SplitSession): Promise<void> {
+export async function saveSplitSession(
+  session: SplitSession,
+): Promise<SplitSession> {
   console.log("[splitStorage] Saving session:", {
     id: session.id,
     title: session.title,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   });
-  const sessions = await getSavedSplitSessions();
-  const nextSessions = sortByUpdatedAtDesc([
-    session,
-    ...sessions.filter((savedSession) => savedSession.id !== session.id),
-  ]);
 
-  await AsyncStorage.setItem(SAVED_SPLITS_KEY, JSON.stringify(nextSessions));
-  console.log("[splitStorage] Saved session count:", nextSessions.length);
+  const savedDto = isUuid(session.id)
+    ? await updateSplitSession(session.id, splitSessionToUpdateRequest(session))
+    : await createSplitSession(splitSessionToCreateRequest(session));
+  const savedSession = apiDtoToSplitSession(savedDto);
+
+  console.log("[splitStorage] Saved session:", {
+    id: savedSession.id,
+    title: savedSession.title,
+    updatedAt: savedSession.updatedAt,
+  });
+
+  return savedSession;
 }
 
 export async function deleteSplitSession(sessionId: string): Promise<void> {
-  const sessions = await getSavedSplitSessions();
-  const nextSessions = sessions.filter((session) => session.id !== sessionId);
-
-  await AsyncStorage.setItem(SAVED_SPLITS_KEY, JSON.stringify(nextSessions));
+  await deleteSplitSessionFromApi(sessionId);
 }
 
 export async function clearAllSplitSessions(): Promise<void> {
-  await AsyncStorage.removeItem(SAVED_SPLITS_KEY);
+  const sessions = await getSavedSplitSessions();
+  await Promise.all(sessions.map((session) => deleteSplitSession(session.id)));
 }
