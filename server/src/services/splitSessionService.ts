@@ -43,7 +43,6 @@ type NormalizedPayment = {
 };
 
 type NormalizedSplitSessionInput = {
-  ownerUserId?: string;
   title: string;
   splitType: SplitType;
   restaurantName?: string;
@@ -366,7 +365,6 @@ function normalizeSplitSessionInput(body: unknown): NormalizedSplitSessionInput 
     generateDefaultTitle({ restaurantName, receiptItems });
 
   return {
-    ownerUserId: optionalString(body.ownerUserId),
     title,
     splitType: normalizeSplitType(body.mode ?? body.splitType),
     restaurantName,
@@ -478,8 +476,9 @@ async function replaceNestedRecords(
   }
 }
 
-export async function listSplitSessions() {
+export async function listSplitSessions(ownerUserId: string) {
   const splitSessions = await prisma.splitSession.findMany({
+    where: { ownerUserId },
     include: splitSessionDtoInclude,
     orderBy: { createdAt: "desc" },
   });
@@ -487,9 +486,9 @@ export async function listSplitSessions() {
   return splitSessions.map(mapSplitSessionToDto);
 }
 
-export async function getSplitSessionById(id: string) {
-  const splitSession = await prisma.splitSession.findUnique({
-    where: { id },
+export async function getSplitSessionById(id: string, ownerUserId: string) {
+  const splitSession = await prisma.splitSession.findFirst({
+    where: { id, ownerUserId },
     include: splitSessionDtoInclude,
   });
 
@@ -500,13 +499,16 @@ export async function getSplitSessionById(id: string) {
   return mapSplitSessionToDto(splitSession);
 }
 
-export async function createSplitSession(body: CreateSplitSessionRequest) {
+export async function createSplitSession(
+  body: CreateSplitSessionRequest,
+  ownerUserId: string,
+) {
   const input = normalizeSplitSessionInput(body);
 
   const splitSession = await prisma.$transaction(async (tx) => {
     const createdSplitSession = await tx.splitSession.create({
       data: {
-        ownerUserId: input.ownerUserId,
+        ownerUserId,
         title: input.title,
         splitType: input.splitType,
         restaurantName: input.restaurantName,
@@ -531,12 +533,13 @@ export async function createSplitSession(body: CreateSplitSessionRequest) {
 export async function updateSplitSession(
   id: string,
   body: UpdateSplitSessionRequest,
+  ownerUserId: string,
 ) {
   const input = normalizeSplitSessionInput(body);
 
   const splitSession = await prisma.$transaction(async (tx) => {
-    const existingSplitSession = await tx.splitSession.findUnique({
-      where: { id },
+    const existingSplitSession = await tx.splitSession.findFirst({
+      where: { id, ownerUserId },
       select: { id: true },
     });
 
@@ -554,7 +557,7 @@ export async function updateSplitSession(
     await tx.splitSession.update({
       where: { id },
       data: {
-        ownerUserId: input.ownerUserId,
+        ownerUserId,
         title: input.title,
         splitType: input.splitType,
         restaurantName: input.restaurantName,
@@ -576,17 +579,12 @@ export async function updateSplitSession(
   return mapSplitSessionToDto(splitSession);
 }
 
-export async function deleteSplitSession(id: string) {
-  try {
-    await prisma.splitSession.delete({ where: { id } });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      throw new SplitSessionNotFoundError(id);
-    }
+export async function deleteSplitSession(id: string, ownerUserId: string) {
+  const deleteResult = await prisma.splitSession.deleteMany({
+    where: { id, ownerUserId },
+  });
 
-    throw error;
+  if (deleteResult.count === 0) {
+    throw new SplitSessionNotFoundError(id);
   }
 }

@@ -16,6 +16,12 @@ import {
   View,
 } from "react-native";
 
+import { login, register } from "./services/authApi";
+import {
+  clearAuthToken,
+  getStoredAuthToken,
+  storeAuthToken,
+} from "./services/authStorage";
 import { buildImportedReceiptData, extractReceipt } from "./services/receiptExtraction";
 import {
   deleteSplitSession,
@@ -138,6 +144,11 @@ export default function App() {
   const [savedSessions, setSavedSessions] = useState<SplitSession[]>([]);
   const [savedStatus, setSavedStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingPersonName, setEditingPersonName] = useState("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -152,6 +163,11 @@ export default function App() {
   const receiptItemsSectionY = useRef(0);
 
   const refreshSavedSessions = async () => {
+    if (!authToken) {
+      setSavedSessions([]);
+      return;
+    }
+
     try {
       const saved = await getSavedSplitSessions();
       setSavedSessions(saved);
@@ -161,8 +177,26 @@ export default function App() {
   };
 
   useEffect(() => {
-    void refreshSavedSessions();
+    async function loadAuthToken() {
+      const storedToken = await getStoredAuthToken();
+      setAuthToken(storedToken);
+      setIsAuthReady(true);
+    }
+
+    void loadAuthToken();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
+    if (authToken) {
+      void refreshSavedSessions();
+    } else {
+      setSavedSessions([]);
+    }
+  }, [authToken, isAuthReady]);
 
   const clearExtraction = () => {
     setExtractedReceipt(null);
@@ -207,6 +241,45 @@ export default function App() {
     setImportMessage(null);
     cancelEditing();
     clearResults();
+  };
+
+  const handleAuthSuccess = async (token: string, message: string) => {
+    await storeAuthToken(token);
+    setAuthToken(token);
+    setAuthPassword("");
+    setAuthStatus(message);
+    setError(null);
+  };
+
+  const registerWithEmail = async () => {
+    try {
+      const authResponse = await register(authEmail, authPassword);
+      await handleAuthSuccess(authResponse.token, "Registered and logged in.");
+    } catch (error) {
+      console.error("[auth] Registration failed:", error);
+      setAuthStatus(null);
+      setError("Could not register. Check your email and password.");
+    }
+  };
+
+  const loginWithEmail = async () => {
+    try {
+      const authResponse = await login(authEmail, authPassword);
+      await handleAuthSuccess(authResponse.token, "Logged in.");
+    } catch (error) {
+      console.error("[auth] Login failed:", error);
+      setAuthStatus(null);
+      setError("Could not log in. Check your email and password.");
+    }
+  };
+
+  const logout = async () => {
+    await clearAuthToken();
+    setAuthToken(null);
+    setSavedSessions([]);
+    setSavedStatus(null);
+    setAuthStatus("Logged out.");
+    setError(null);
   };
 
   const handleReceiptImageSelected = (uri: string) => {
@@ -598,6 +671,11 @@ export default function App() {
       return;
     }
 
+    if (!authToken) {
+      setError("Log in before saving splits.");
+      return;
+    }
+
     try {
       await Share.share({
         message: formatSessionShareText(session),
@@ -680,6 +758,11 @@ export default function App() {
   };
 
   const deleteSavedSplit = async (sessionId: string) => {
+    if (!authToken) {
+      setError("Log in before deleting saved splits.");
+      return;
+    }
+
     try {
       await deleteSplitSession(sessionId);
       await refreshSavedSessions();
@@ -717,6 +800,56 @@ export default function App() {
             <TouchableOpacity style={styles.resetButton} onPress={resetSplit}>
               <Text style={styles.resetButtonText}>Reset</Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <Text style={styles.sectionHint}>
+              Log in to save and load splits from the backend.
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#64748b"
+              value={authEmail}
+              onChangeText={setAuthEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextInput
+              style={[styles.input, styles.inputSpacing]}
+              placeholder="Password"
+              placeholderTextColor="#64748b"
+              value={authPassword}
+              onChangeText={setAuthPassword}
+              secureTextEntry
+            />
+            {authToken ? (
+              <TouchableOpacity
+                style={[styles.receiptDangerButton, styles.authButtonSpacing]}
+                onPress={logout}
+              >
+                <Text style={styles.receiptDangerButtonText}>Logout</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.receiptActions, styles.authButtonSpacing]}>
+                <TouchableOpacity
+                  style={[styles.receiptPrimaryButton, styles.authActionButton]}
+                  onPress={loginWithEmail}
+                >
+                  <Text style={styles.receiptPrimaryButtonText}>Login</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.receiptOutlineButton, styles.authActionButton]}
+                  onPress={registerWithEmail}
+                >
+                  <Text style={styles.receiptOutlineButtonText}>Register</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {authStatus && (
+              <Text style={styles.calculatedTipText}>{authStatus}</Text>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -1325,7 +1458,9 @@ export default function App() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Saved Splits</Text>
-            {savedSessions.length === 0 ? (
+            {!authToken ? (
+              <Text style={styles.emptyText}>Log in to view saved splits.</Text>
+            ) : savedSessions.length === 0 ? (
               <Text style={styles.emptyText}>No saved splits yet.</Text>
             ) : (
               savedSessions.map((savedSession) => (
@@ -1505,6 +1640,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 10,
+  },
+  authButtonSpacing: {
+    marginTop: 12,
+  },
+  authActionButton: {
+    flex: 1,
   },
   receiptSecondaryButton: {
     flex: 1,

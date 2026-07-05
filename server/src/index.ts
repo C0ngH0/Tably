@@ -4,6 +4,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 
+import authRoutes from "./routes/authRoutes";
 import receiptRoutes from "./routes/receiptRoutes";
 import splitSessionRoutes from "./routes/splitSessionRoutes";
 
@@ -95,6 +96,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "splitsnap-server" });
 });
 
+app.use("/api/auth", authRoutes);
 app.use("/api/receipt", receiptRoutes);
 app.use("/api/split-sessions", splitSessionRoutes);
 

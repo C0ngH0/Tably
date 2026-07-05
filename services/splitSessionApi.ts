@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./receiptExtraction";
+import { getStoredAuthToken } from "./authStorage";
 import type {
   CreateSplitSessionRequest,
   SplitSessionDto,
@@ -23,11 +24,28 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   }
 }
 
+async function getAuthHeaders(extraHeaders?: HeadersInit): Promise<HeadersInit> {
+  const token = await getStoredAuthToken();
+
+  if (!token) {
+    throw new Error("Please log in before using saved splits.");
+  }
+
+  return {
+    ...extraHeaders,
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   let response: Response;
+  const headers = await getAuthHeaders(options?.headers);
 
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
   } catch (error) {
     console.error("[splitSessionApi] Network request failed:", url, error);
     throw new Error(
@@ -53,15 +71,13 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return parseJsonResponse<T>(response);
 }
 
-function jsonRequestOptions(
+async function jsonRequestOptions(
   method: "POST" | "PUT",
   body: CreateSplitSessionRequest | UpdateSplitSessionRequest,
-): RequestInit {
+): Promise<RequestInit> {
   return {
     method,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   };
 }
@@ -83,7 +99,7 @@ export async function createSplitSession(
 ): Promise<SplitSessionDto> {
   const response = await request<SplitSessionResponse>(
     SPLIT_SESSIONS_ENDPOINT,
-    jsonRequestOptions("POST", session),
+    await jsonRequestOptions("POST", session),
   );
 
   return response.splitSession;
@@ -95,7 +111,7 @@ export async function updateSplitSession(
 ): Promise<SplitSessionDto> {
   const response = await request<SplitSessionResponse>(
     `${SPLIT_SESSIONS_ENDPOINT}/${encodeURIComponent(id)}`,
-    jsonRequestOptions("PUT", session),
+    await jsonRequestOptions("PUT", session),
   );
 
   return response.splitSession;
@@ -106,7 +122,10 @@ export async function deleteSplitSession(id: string): Promise<void> {
   const url = `${SPLIT_SESSIONS_ENDPOINT}/${encodeURIComponent(id)}`;
 
   try {
-    response = await fetch(url, { method: "DELETE" });
+    response = await fetch(url, {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    });
   } catch (error) {
     console.error("[splitSessionApi] Network request failed:", url, error);
     throw new Error(

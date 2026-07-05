@@ -34,7 +34,8 @@
           "cameraPermission": "SplitSnap uses your camera so you can photograph receipts.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }
