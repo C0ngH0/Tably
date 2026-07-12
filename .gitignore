@@ -44,3 +44,4 @@ AGENTS.md
 .claude/
 CLAUDE.md
 server/.env
+server/deploy.zip
