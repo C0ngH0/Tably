@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./receiptExtraction";
+import { API_BASE_URL } from "./apiConfig";
 import { getStoredAuthToken } from "./authStorage";
 import type {
   CreateSplitSessionRequest,
@@ -49,7 +49,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   } catch (error) {
     console.error("[splitSessionApi] Network request failed:", url, error);
     throw new Error(
-      `Could not reach the SplitSnap server at ${API_BASE_URL}. Make sure the backend is running and your phone is on the same Wi-Fi network.`,
+      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 
@@ -129,7 +129,7 @@ export async function deleteSplitSession(id: string): Promise<void> {
   } catch (error) {
     console.error("[splitSessionApi] Network request failed:", url, error);
     throw new Error(
-      `Could not reach the SplitSnap server at ${API_BASE_URL}. Make sure the backend is running and your phone is on the same Wi-Fi network.`,
+      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 

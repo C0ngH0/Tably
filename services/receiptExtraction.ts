@@ -1,8 +1,6 @@
+import { API_BASE_URL } from "./apiConfig";
 import type { ExtractedReceipt, ExtractedReceiptItem } from "../types/receipt";
 import type { ReceiptItem } from "../types/split";
-
-/** Change this if your Mac's local IP changes (same Wi‑Fi as your phone). */
-export const API_BASE_URL = "http://192.168.1.9:3001";
 
 const RECEIPT_EXTRACT_ENDPOINT = `${API_BASE_URL}/api/receipt/extract`;
 const RECEIPT_IMAGE_FIELD_NAME = "image";
@@ -99,7 +97,7 @@ export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt
     );
 
     throw new Error(
-      `Could not reach the SplitSnap server at ${API_BASE_URL}. Make sure the backend is running, the URL includes port 3001, and your phone is on the same Wi‑Fi network.`,
+      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 
