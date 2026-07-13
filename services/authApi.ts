@@ -13,6 +13,10 @@ export type AuthResponse = {
   token: string;
 };
 
+export type PasswordResetResponse = {
+  message: string;
+};
+
 async function submitAuthRequest(
   path: "register" | "login",
   email: string,
@@ -63,4 +67,65 @@ export function register(email: string, password: string): Promise<AuthResponse>
 
 export function login(email: string, password: string): Promise<AuthResponse> {
   return submitAuthRequest("login", email, password);
+}
+
+async function submitPasswordResetRequest(
+  path: "forgot-password" | "reset-password",
+  body: Record<string, string>,
+): Promise<PasswordResetResponse> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${AUTH_ENDPOINT}/${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    console.error("[authApi] Password reset request failed:", error);
+    throw new Error(
+      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
+    );
+  }
+
+  if (!response.ok) {
+    let message = `Password reset request failed (${response.status}).`;
+
+    try {
+      const errorBody = (await response.json()) as { error?: string };
+      if (errorBody.error) {
+        message = errorBody.error;
+      }
+    } catch {
+      // Keep the generic HTTP message when the server does not return JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  try {
+    return (await response.json()) as PasswordResetResponse;
+  } catch {
+    throw new Error("Server returned an unreadable password reset response.");
+  }
+}
+
+export function requestPasswordReset(
+  email: string,
+): Promise<PasswordResetResponse> {
+  return submitPasswordResetRequest("forgot-password", { email });
+}
+
+export function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<PasswordResetResponse> {
+  return submitPasswordResetRequest("reset-password", {
+    email,
+    code,
+    newPassword,
+  });
 }

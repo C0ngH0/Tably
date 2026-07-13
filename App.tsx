@@ -16,7 +16,12 @@ import {
   View,
 } from "react-native";
 
-import { login, register } from "./services/authApi";
+import {
+  login,
+  register,
+  requestPasswordReset,
+  resetPassword,
+} from "./services/authApi";
 import {
   clearAuthToken,
   getStoredAuthToken,
@@ -127,6 +132,7 @@ const RECEIPT_IMAGE_OPTIONS: ImagePicker.ImagePickerOptions = {
 };
 
 const INITIAL_TIP_PERCENT = 18;
+type AuthView = "login" | "forgot" | "reset";
 
 export default function App() {
   const [mode, setMode] = useState<SplitMode>(INITIAL_MODE);
@@ -148,6 +154,11 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<string | null>(null);
+  const [authView, setAuthView] = useState<AuthView>("login");
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [editingPersonId, setEditingPersonId] = useState<string | null>(null);
   const [editingPersonName, setEditingPersonName] = useState("");
@@ -247,29 +258,36 @@ export default function App() {
     await storeAuthToken(token);
     setAuthToken(token);
     setAuthPassword("");
+    setAuthView("login");
     setAuthStatus(message);
     setError(null);
   };
 
   const registerWithEmail = async () => {
     try {
+      setIsAuthSubmitting(true);
       const authResponse = await register(authEmail, authPassword);
       await handleAuthSuccess(authResponse.token, "Registered and logged in.");
     } catch (error) {
       console.error("[auth] Registration failed:", error);
       setAuthStatus(null);
       setError("Could not register. Check your email and password.");
+    } finally {
+      setIsAuthSubmitting(false);
     }
   };
 
   const loginWithEmail = async () => {
     try {
+      setIsAuthSubmitting(true);
       const authResponse = await login(authEmail, authPassword);
       await handleAuthSuccess(authResponse.token, "Logged in.");
     } catch (error) {
       console.error("[auth] Login failed:", error);
       setAuthStatus(null);
       setError("Could not log in. Check your email and password.");
+    } finally {
+      setIsAuthSubmitting(false);
     }
   };
 
@@ -280,6 +298,56 @@ export default function App() {
     setSavedStatus(null);
     setAuthStatus("Logged out.");
     setError(null);
+  };
+
+  const submitForgotPassword = async () => {
+    try {
+      setIsAuthSubmitting(true);
+      const response = await requestPasswordReset(authEmail);
+      setAuthStatus(response.message);
+      setAuthView("reset");
+      setError(null);
+    } catch (error) {
+      console.error("[auth] Forgot password request failed:", error);
+      setAuthStatus(null);
+      setError("Could not request a password reset.");
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const submitResetPassword = async () => {
+    if (!/^\d{6}$/.test(resetCode)) {
+      setError("Enter the 6-digit reset code from your email.");
+      return;
+    }
+
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+
+    try {
+      setIsAuthSubmitting(true);
+      const response = await resetPassword(
+        authEmail,
+        resetCode,
+        resetNewPassword,
+      );
+      setAuthStatus(response.message);
+      setAuthView("login");
+      setAuthPassword("");
+      setResetCode("");
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+      setError(null);
+    } catch (error) {
+      console.error("[auth] Reset password failed:", error);
+      setAuthStatus(null);
+      setError("Could not reset password. Check the code and new password.");
+    } finally {
+      setIsAuthSubmitting(false);
+    }
   };
 
   const handleReceiptImageSelected = (uri: string) => {
@@ -805,7 +873,11 @@ export default function App() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
             <Text style={styles.sectionHint}>
-              Log in to save and load splits from the backend.
+              {authView === "forgot"
+                ? "Enter your email and we will send a 6-digit password reset code."
+                : authView === "reset"
+                  ? "Enter the reset code from your email and choose a new password."
+                  : "Log in to save and load splits from the backend."}
             </Text>
             <TextInput
               style={styles.input}
@@ -816,34 +888,132 @@ export default function App() {
               autoCapitalize="none"
               keyboardType="email-address"
             />
-            <TextInput
-              style={[styles.input, styles.inputSpacing]}
-              placeholder="Password"
-              placeholderTextColor="#64748b"
-              value={authPassword}
-              onChangeText={setAuthPassword}
-              secureTextEntry
-            />
-            {authToken ? (
+            {authView === "login" && (
+              <TextInput
+                style={[styles.input, styles.inputSpacing]}
+                placeholder="Password"
+                placeholderTextColor="#64748b"
+                value={authPassword}
+                onChangeText={setAuthPassword}
+                secureTextEntry
+              />
+            )}
+            {authView === "reset" && (
+              <>
+                <TextInput
+                  style={[styles.input, styles.inputSpacing]}
+                  placeholder="Reset code"
+                  placeholderTextColor="#64748b"
+                  value={resetCode}
+                  onChangeText={(value) =>
+                    setResetCode(value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputSpacing]}
+                  placeholder="New password"
+                  placeholderTextColor="#64748b"
+                  value={resetNewPassword}
+                  onChangeText={setResetNewPassword}
+                  secureTextEntry
+                />
+                <TextInput
+                  style={[styles.input, styles.inputSpacing]}
+                  placeholder="Confirm new password"
+                  placeholderTextColor="#64748b"
+                  value={resetConfirmPassword}
+                  onChangeText={setResetConfirmPassword}
+                  secureTextEntry
+                />
+              </>
+            )}
+            {authToken && authView === "login" ? (
               <TouchableOpacity
                 style={[styles.receiptDangerButton, styles.authButtonSpacing]}
                 onPress={logout}
+                disabled={isAuthSubmitting}
               >
                 <Text style={styles.receiptDangerButtonText}>Logout</Text>
               </TouchableOpacity>
+            ) : authView === "forgot" ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.receiptPrimaryButton, styles.authButtonSpacing]}
+                  onPress={submitForgotPassword}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.receiptPrimaryButtonText}>
+                    {isAuthSubmitting ? "Sending..." : "Send Reset Email"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.receiptOutlineButton, styles.authButtonSpacing]}
+                  onPress={() => setAuthView("login")}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.receiptOutlineButtonText}>
+                    Back to Login
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : authView === "reset" ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.receiptPrimaryButton, styles.authButtonSpacing]}
+                  onPress={submitResetPassword}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.receiptPrimaryButtonText}>
+                    {isAuthSubmitting ? "Resetting..." : "Reset Password"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.receiptOutlineButton, styles.authButtonSpacing]}
+                  onPress={() => setAuthView("login")}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.receiptOutlineButtonText}>
+                    Back to Login
+                  </Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <View style={[styles.receiptActions, styles.authButtonSpacing]}>
                 <TouchableOpacity
                   style={[styles.receiptPrimaryButton, styles.authActionButton]}
                   onPress={loginWithEmail}
+                  disabled={isAuthSubmitting}
                 >
-                  <Text style={styles.receiptPrimaryButtonText}>Login</Text>
+                  <Text style={styles.receiptPrimaryButtonText}>
+                    {isAuthSubmitting ? "Loading..." : "Login"}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.receiptOutlineButton, styles.authActionButton]}
                   onPress={registerWithEmail}
+                  disabled={isAuthSubmitting}
                 >
                   <Text style={styles.receiptOutlineButtonText}>Register</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {!authToken && authView === "login" && (
+              <View style={styles.receiptActions}>
+                <TouchableOpacity
+                  style={styles.authTextButton}
+                  onPress={() => setAuthView("forgot")}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.editText}>Forgot Password?</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.authTextButton}
+                  onPress={() => setAuthView("reset")}
+                  disabled={isAuthSubmitting}
+                >
+                  <Text style={styles.editText}>Enter Reset Code</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1646,6 +1816,9 @@ const styles = StyleSheet.create({
   },
   authActionButton: {
     flex: 1,
+  },
+  authTextButton: {
+    paddingVertical: 4,
   },
   receiptSecondaryButton: {
     flex: 1,
