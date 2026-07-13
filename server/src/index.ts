@@ -16,23 +16,19 @@ const DEVELOPMENT_CORS_ORIGINS = [
   "http://localhost:3000",
 ];
 
-function getSafeSecretSummary(value: string | undefined) {
+function getOpenAIKeyStatus(value: string | undefined) {
   if (!value) {
     return {
       exists: false,
-      first8: "",
-      last4: "",
-      length: 0,
       startsWithSk: false,
+      hasMinimumLength: false,
     };
   }
 
   return {
     exists: true,
-    first8: value.slice(0, 8),
-    last4: value.slice(-4),
-    length: value.length,
     startsWithSk: value.startsWith("sk-"),
+    hasMinimumLength: value.length >= 20,
   };
 }
 
@@ -48,34 +44,31 @@ function countEnvDefinitions(key: string): number {
 }
 
 function logOpenAIKeyStatus() {
-  const keySummary = getSafeSecretSummary(process.env.OPENAI_API_KEY);
+  const keyStatus = getOpenAIKeyStatus(process.env.OPENAI_API_KEY);
   const definitionCount = countEnvDefinitions("OPENAI_API_KEY");
 
-  console.log("[env] OPENAI_API_KEY exists:", keySummary.exists);
-  console.log("[env] OPENAI_API_KEY first8:", keySummary.first8);
-  console.log("[env] OPENAI_API_KEY last4:", keySummary.last4);
-  console.log("[env] OPENAI_API_KEY length:", keySummary.length);
-  console.log("[env] OPENAI_API_KEY starts with sk-:", keySummary.startsWithSk);
+  console.log("[env] OPENAI_API_KEY exists:", keyStatus.exists);
+  console.log("[env] OPENAI_API_KEY starts with sk-:", keyStatus.startsWithSk);
   console.log("[env] OPENAI_API_KEY definitions in .env:", definitionCount);
 
   if (definitionCount > 1) {
     console.warn("[env] OPENAI_API_KEY is defined multiple times in server/.env.");
   }
 
-  if (!keySummary.exists) {
+  if (!keyStatus.exists) {
     console.warn("[env] OPENAI_API_KEY is missing.");
-  } else if (!keySummary.startsWithSk || keySummary.length < 20) {
+  } else if (!keyStatus.startsWithSk || !keyStatus.hasMinimumLength) {
     console.warn(
       "[env] OPENAI_API_KEY looks malformed. Check for quotes, comments, spaces, or a copied placeholder.",
     );
   }
 }
 
-function parseCorsAllowedOrigins() {
+function parseCorsAllowedOrigins(): string[] {
   const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? "")
     .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
+    .map((origin: string) => origin.trim())
+    .filter((origin: string) => origin.length > 0);
 
   if (process.env.NODE_ENV === "production") {
     return configuredOrigins;

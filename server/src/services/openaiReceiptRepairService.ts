@@ -28,23 +28,19 @@ const OPENAI_MODEL = "gpt-4o-mini";
 
 let openaiClient: OpenAI | null = null;
 
-function getSafeOpenAIKeySummary(value: string | undefined) {
+function getOpenAIKeyStatus(value: string | undefined) {
   if (!value) {
     return {
       exists: false,
-      first8: "",
-      last4: "",
-      length: 0,
       startsWithSk: false,
+      hasMinimumLength: false,
     };
   }
 
   return {
     exists: true,
-    first8: value.slice(0, 8),
-    last4: value.slice(-4),
-    length: value.length,
     startsWithSk: value.startsWith("sk-"),
+    hasMinimumLength: value.length >= 20,
   };
 }
 
@@ -54,28 +50,16 @@ function getOpenAIClient(): OpenAI {
   }
 
   if (!openaiClient) {
-    const keySummary = getSafeOpenAIKeySummary(process.env.OPENAI_API_KEY);
+    const keyStatus = getOpenAIKeyStatus(process.env.OPENAI_API_KEY);
 
     console.log("[openaiReceiptRepairService] Instantiating OpenAI client");
     console.log("[openaiReceiptRepairService] process.cwd():", process.cwd());
     console.log(
-      "[openaiReceiptRepairService] OPENAI_API_KEY first8:",
-      keySummary.first8,
-    );
-    console.log(
-      "[openaiReceiptRepairService] OPENAI_API_KEY last4:",
-      keySummary.last4,
-    );
-    console.log(
-      "[openaiReceiptRepairService] OPENAI_API_KEY length:",
-      keySummary.length,
-    );
-    console.log(
       "[openaiReceiptRepairService] OPENAI_API_KEY starts with sk-:",
-      keySummary.startsWithSk,
+      keyStatus.startsWithSk,
     );
 
-    if (!keySummary.startsWithSk || keySummary.length < 20) {
+    if (!keyStatus.startsWithSk || !keyStatus.hasMinimumLength) {
       throw new Error(
         "OPENAI_API_KEY looks malformed. Check server/.env and restart the server.",
       );

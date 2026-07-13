@@ -1,17 +1,31 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db/prisma";
+import { sendPasswordResetEmail } from "./passwordResetEmailService";
 
 const PASSWORD_SALT_ROUNDS = 12;
 const JWT_EXPIRES_IN = "7d";
 const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_RESET_RESPONSE_MESSAGE =
+  "If an account exists for that email, a reset email has been sent.";
 
 type AuthRequestBody = {
   email?: unknown;
   password?: unknown;
   displayName?: unknown;
+};
+
+type ForgotPasswordRequestBody = {
+  email?: unknown;
+};
+
+type ResetPasswordRequestBody = {
+  email?: unknown;
+  code?: unknown;
+  newPassword?: unknown;
 };
 
 type AuthUser = {
@@ -40,6 +54,16 @@ function getJwtSecret(): string {
   return secret;
 }
 
+function getPasswordResetTtlMinutes(): number {
+  const configuredValue = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES);
+
+  if (Number.isFinite(configuredValue) && configuredValue > 0) {
+    return configuredValue;
+  }
+
+  return 15;
+}
+
 function normalizeEmail(value: unknown): string {
   if (typeof value !== "string") {
     throw new AuthError("Email is required.");
@@ -65,6 +89,27 @@ function normalizePassword(value: unknown): string {
   }
 
   return value;
+}
+
+function normalizeResetCode(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new AuthError("Reset code is required.");
+  }
+
+  const code = value.trim();
+  if (!/^\d{6}$/.test(code)) {
+    throw new AuthError("Reset code must be 6 digits.");
+  }
+
+  return code;
+}
+
+function generateResetCode(): string {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashResetCode(code: string): string {
+  return crypto.createHash("sha256").update(code, "utf8").digest("hex");
 }
 
 function normalizeOptionalString(value: unknown): string | null {
@@ -159,4 +204,98 @@ export async function loginUser(body: AuthRequestBody) {
     email: user.email,
     displayName: user.displayName,
   });
+}
+
+export async function requestPasswordReset(body: ForgotPasswordRequestBody) {
+  const email = normalizeEmail(body.email);
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true },
+  });
+
+  if (!user?.email) {
+    return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
+  }
+
+  const code = generateResetCode();
+  const codeHash = hashResetCode(code);
+  const expiresAt = new Date(
+    Date.now() + getPasswordResetTtlMinutes() * 60 * 1000,
+  );
+
+  await prisma.$transaction(async (tx) => {
+    await tx.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        used: false,
+      },
+      data: {
+        used: true,
+      },
+    });
+
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: codeHash,
+        expiresAt,
+      },
+    });
+  });
+
+  try {
+    await sendPasswordResetEmail({
+      toEmail: user.email,
+      code,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error("[authService] Failed to send password reset email:", error);
+  }
+
+  return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
+}
+
+export async function resetPassword(body: ResetPasswordRequestBody) {
+  const email = normalizeEmail(body.email);
+  const code = normalizeResetCode(body.code);
+  const newPassword = normalizePassword(body.newPassword);
+  const newPasswordHash = await bcrypt.hash(newPassword, PASSWORD_SALT_ROUNDS);
+  const codeHash = hashResetCode(code);
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    const resetCodeRecord = await tx.passwordResetToken.findFirst({
+      where: {
+        tokenHash: codeHash,
+        used: false,
+        expiresAt: {
+          gt: now,
+        },
+        user: {
+          email,
+        },
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+    if (!resetCodeRecord) {
+      throw new AuthError("Invalid or expired reset code.", 400);
+    }
+
+    await tx.user.update({
+      where: { id: resetCodeRecord.userId },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    await tx.passwordResetToken.updateMany({
+      where: { userId: resetCodeRecord.userId },
+      data: { used: true },
+    });
+  });
+
+  return { message: "Password has been reset." };
 }
