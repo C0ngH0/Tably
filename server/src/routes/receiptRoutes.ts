@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 
 import { extractReceiptMock } from "../services/mockReceiptService";
 import {
@@ -12,9 +13,17 @@ import { parseReceiptFromTextract } from "../services/receiptParserService";
 import { extractReceiptWithTextract } from "../services/textractService";
 
 const receiptRoutes = Router();
+const ocrRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many receipt OCR requests. Please try again later." },
+});
 
 receiptRoutes.post(
   "/extract",
+  ocrRateLimiter,
   (req: Request, res: Response, next) => {
     receiptImageUpload.single(RECEIPT_IMAGE_FIELD_NAME)(req, res, (error) => {
       if (error) {

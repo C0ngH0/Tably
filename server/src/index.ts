@@ -103,6 +103,8 @@ logOpenAIKeyStatus();
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
+app.set("trust proxy", 1);
+
 app.use(
   cors({
     origin(origin, callback) {
