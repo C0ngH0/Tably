@@ -159,34 +159,34 @@ User
 
 ### Infrastructure
 
-- ✅ AWS SES integration
-- ✅ Cloudflare DNS configuration
-- ✅ PostgreSQL deployment
-- ✅ Prisma integration
-- ✅ S3 integration
+✅ AWS SES integration
+✅ Cloudflare DNS configuration
+✅ PostgreSQL deployment
+✅ Prisma integration
+✅ S3 integration
 
 ### Authentication
 
-- ✅ Registration
-- ✅ Login
-- ✅ Password reset
-- ✅ Email delivery
-- ✅ Secure reset flow
+✅ Registration
+✅ Login
+✅ Password reset
+✅ Email delivery
+✅ Secure reset flow
 
 ### Receipt Pipeline
 
-- ✅ Receipt upload
-- ✅ OCR extraction
-- ✅ AI normalization
-- ✅ Structured receipt output
+✅ Receipt upload
+✅ OCR extraction
+✅ AI normalization
+✅ Structured receipt output
 
 ### Bill Splitting
 
-- ✅ Even split
-- ✅ Itemized split
-- ✅ Hybrid split
-- ✅ Tax allocation
-- ✅ Tip allocation
+✅ Even split
+✅ Itemized split
+✅ Hybrid split
+✅ Tax allocation
+✅ Tip allocation
 
 ### In Progress
 
