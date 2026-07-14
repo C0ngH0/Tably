@@ -2,76 +2,274 @@
 
 AI-powered receipt splitting for groups.
 
-Tably uses OCR and AI-assisted parsing to extract receipt data, assign items to diners, and calculate exactly what everyone owes.
+Tably transforms receipt images into structured bill data using OCR and AI-assisted parsing, allowing groups to split restaurant bills without manual calculations or spreadsheets.
 
-[Website](https://usetably.org) • [Documentation] • [Report Bug] • [Request Feature]
+Built with React Native, PostgreSQL, AWS, and modern LLM infrastructure.
+
+<p align="center">
+  Website • Documentation • Report Bug • Request Feature
+</p>
 
 ---
 
 ## Features
 
-- Receipt photo upload
-- AWS Textract OCR extraction
-- AI receipt normalization
-- Even split
-- Itemized split
-- Hybrid split
-- Tax and tip allocation
-- Receipt history
-- Secure authentication
+### Receipt Processing
 
----
+- Upload receipt images from camera or photo library
+- Receipt preview before processing
+- Receipt history and persistence
+- Cloud-backed storage
 
-## Screenshots
+### OCR Pipeline
 
-[Hero screenshot here]
+- AWS Textract integration
+- Merchant extraction
+- Line item extraction
+- Tax extraction
+- Total extraction
+- Structured receipt parsing
 
-[Receipt upload screenshot]
+### AI Receipt Intelligence
 
-[Assignment workflow screenshot]
+- OCR error correction
+- Receipt normalization
+- Missing field recovery
+- Invalid total detection
+- Confidence scoring
+- Structured JSON generation
 
-[Results screen screenshot]
+### Splitting Engine
 
----
+- Even Split
+- Itemized Split
+- Hybrid Split
+- Shared item support
+- Tax allocation
+- Tip allocation
+- Rounding correction
 
-## Example
+### Authentication
 
-| Item | Assigned To | Amount |
-|------|------------|--------|
-| Burger | Cong | $18.00 |
-| Fries | Cong, Alex | $4.50 |
-| Drink | Alex | $3.00 |
-
-| Person | Final Total |
-|--------|-------------|
-| Cong | $22.47 |
-| Alex | $18.12 |
-
----
-
-## Stack
-
-| Layer | Technology |
-|-------|------------|
-| Mobile | React Native, Expo |
-| Backend | Node.js, Express |
-| Database | PostgreSQL |
-| ORM | Prisma |
-| OCR | AWS Textract |
-| AI | OpenAI API |
-| Email | Amazon SES |
-| Storage | Amazon S3 |
-| Infrastructure | AWS |
+- Email registration
+- Secure login
+- JWT authentication
+- Password reset via email
+- Single-use verification codes
+- Session persistence
 
 ---
 
 ## Architecture
 
 ```text
-React Native App
-        ↓
-Express API
-        ↓
-Prisma ORM
-        ↓
-PostgreSQL
+┌──────────────────────┐
+│  React Native Client │
+└──────────┬───────────┘
+           │ HTTPS
+           ▼
+┌──────────────────────┐
+│ Express API Backend  │
+└──────────┬───────────┘
+           │ Prisma ORM
+           ▼
+┌──────────────────────┐
+│ PostgreSQL Database  │
+└──────────────────────┘
+```
+
+Supporting services:
+
+```text
+Receipt Upload
+      │
+      ▼
+Amazon S3
+      │
+      ▼
+AWS Textract
+      │
+      ▼
+OpenAI Processing
+      │
+      ▼
+Normalized Receipt Data
+      │
+      ▼
+Split Engine
+```
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| Mobile | React Native |
+| Framework | Expo |
+| Language | TypeScript |
+| Backend | Node.js |
+| API | Express |
+| ORM | Prisma |
+| Database | PostgreSQL |
+| OCR | AWS Textract |
+| AI | OpenAI API |
+| Storage | Amazon S3 |
+| Email | Amazon SES |
+| DNS | Cloudflare |
+| Infrastructure | AWS |
+
+---
+
+## Database Model
+
+```text
+User
+│
+├── SplitSession
+│   ├── Participants
+│   ├── Receipt
+│   ├── ReceiptItems
+│   └── Assignments
+│
+├── PasswordResetCode
+│
+└── UserSession
+```
+
+---
+
+## Security
+
+| Feature | Status |
+|---------|--------|
+| bcrypt password hashing | ✅ |
+| JWT authentication | ✅ |
+| SHA256 reset code hashing | ✅ |
+| Single-use reset codes | ✅ |
+| Expiring reset codes | ✅ |
+| Rate limiting | ✅ |
+| DKIM email signing | ✅ |
+| SPF validation | ✅ |
+| DMARC support | ✅ |
+
+---
+
+## Current Progress
+
+### Infrastructure
+
+- [x] AWS SES integration
+- [x] Cloudflare DNS configuration
+- [x] PostgreSQL deployment
+- [x] Prisma integration
+- [x] S3 integration
+
+### Authentication
+
+- [x] Registration
+- [x] Login
+- [x] Password reset
+- [x] Email delivery
+- [x] Secure reset flow
+
+### Receipt Pipeline
+
+- [x] Receipt upload
+- [x] OCR extraction
+- [x] AI normalization
+- [x] Structured receipt output
+
+### Bill Splitting
+
+- [x] Even split
+- [x] Itemized split
+- [x] Hybrid split
+- [x] Tax allocation
+- [x] Tip allocation
+
+### In Progress
+
+- [ ] Receipt assignment improvements
+- [ ] Receipt editing workflow
+- [ ] Shareable summaries
+- [ ] Payment tracking
+
+### Planned
+
+- [ ] Stripe Checkout
+- [ ] Apple Pay
+- [ ] Group settlement tracking
+- [ ] Expense analytics
+- [ ] Multi-currency support
+
+---
+
+## Example Receipt Output
+
+```json
+{
+  "merchant": "In-N-Out Burger",
+  "subtotal": 42.15,
+  "tax": 3.64,
+  "tip": 8.00,
+  "total": 53.79,
+  "items": [
+    {
+      "name": "Double Double",
+      "price": 7.25
+    },
+    {
+      "name": "Fries",
+      "price": 2.95
+    }
+  ]
+}
+```
+
+---
+
+## Repository Structure
+
+```text
+mobile/
+├── app/
+├── screens/
+├── components/
+└── services/
+
+server/
+├── routes/
+├── controllers/
+├── middleware/
+├── services/
+├── prisma/
+└── utils/
+```
+
+---
+
+## Research
+
+Tably is also being used as a benchmarking platform for evaluating multimodal AI models on receipt understanding tasks.
+
+Current evaluation areas include:
+
+- extraction accuracy
+- processing latency
+- cost per receipt
+- OCR robustness
+- multilingual receipt performance
+- low quality image handling
+
+---
+
+## Screenshots
+
+Coming soon.
+
+---
+
+## License
+
+MIT
