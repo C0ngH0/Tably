@@ -109,7 +109,3 @@ cd app
 npm install
 npx expo start
 ```
-
-## License
-
-MIT
