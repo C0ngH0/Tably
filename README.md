@@ -1,111 +1,77 @@
 # Tably
 
-Split restaurant bills from a receipt photo.
+AI-powered receipt splitting for groups.
 
-Tably is a React Native application that uses OCR and LLM-assisted parsing to extract receipt data and calculate what each diner owes, including tax, tip, and shared items.
+Tably uses OCR and AI-assisted parsing to extract receipt data, assign items to diners, and calculate exactly what everyone owes.
+
+[Website](https://usetably.org) • [Documentation] • [Report Bug] • [Request Feature]
+
+---
 
 ## Features
 
 - Receipt photo upload
-- OCR extraction using AWS Textract
-- LLM-assisted receipt correction
+- AWS Textract OCR extraction
+- AI receipt normalization
 - Even split
 - Itemized split
-- Hybrid split with shared items
+- Hybrid split
+- Tax and tip allocation
 - Receipt history
-- User accounts and authentication
-- Password reset via email
+- Secure authentication
+
+---
+
+## Screenshots
+
+[Hero screenshot here]
+
+[Receipt upload screenshot]
+
+[Assignment workflow screenshot]
+
+[Results screen screenshot]
+
+---
+
+## Example
+
+| Item | Assigned To | Amount |
+|------|------------|--------|
+| Burger | Cong | $18.00 |
+| Fries | Cong, Alex | $4.50 |
+| Drink | Alex | $3.00 |
+
+| Person | Final Total |
+|--------|-------------|
+| Cong | $22.47 |
+| Alex | $18.12 |
+
+---
 
 ## Stack
 
-Frontend:
+| Layer | Technology |
+|-------|------------|
+| Mobile | React Native, Expo |
+| Backend | Node.js, Express |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| OCR | AWS Textract |
+| AI | OpenAI API |
+| Email | Amazon SES |
+| Storage | Amazon S3 |
+| Infrastructure | AWS |
 
-- React Native
-- Expo
-- TypeScript
-
-Backend:
-
-- Node.js
-- Express
-
-Infrastructure:
-
-- PostgreSQL
-- Prisma
-- AWS Elastic Beanstalk
-- AWS RDS
-- AWS S3
-- AWS SES
-- AWS Textract
-
-AI:
-
-- OpenAI API
+---
 
 ## Architecture
 
 ```text
-Mobile App
-    ↓
+React Native App
+        ↓
 Express API
-    ↓
-Prisma
-    ↓
+        ↓
+Prisma ORM
+        ↓
 PostgreSQL
-```
-
-External services:
-
-```text
-Textract → OCR
-OpenAI → receipt normalization
-SES → transactional email
-S3 → receipt storage
-```
-
-## Development Status
-
-Implemented:
-
-- Authentication
-- Password reset flow
-- Receipt upload
-- OCR extraction
-- Cloud persistence
-- Session history
-
-In progress:
-
-- Receipt assignment workflow
-- Receipt editing
-- Shareable summaries
-
-Planned:
-
-- Stripe payments
-- Apple Pay
-- Group settlement tracking
-
-## Running locally
-
-```bash
-git clone https://github.com/<user>/tably
-cd tably
-```
-
-Backend:
-
-```bash
-cd server
-npm install
-npm run dev
-```
-
-Mobile:
-
-```bash
-cd app
-npm install
-npx expo start
-```
