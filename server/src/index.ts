@@ -6,10 +6,12 @@ import path from "path";
 
 import authRoutes from "./routes/authRoutes";
 import receiptRoutes from "./routes/receiptRoutes";
+import { initializeEmailService } from "./services/email";
 import splitSessionRoutes from "./routes/splitSessionRoutes";
 
 const envPath = path.resolve(__dirname, "../.env");
 const dotenvResult = dotenv.config({ path: envPath, override: true });
+initializeEmailService();
 const DEVELOPMENT_CORS_ORIGINS = [
   "http://localhost:8081",
   "http://localhost:19006",

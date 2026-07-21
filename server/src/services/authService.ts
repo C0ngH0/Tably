@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db/prisma";
-import { sendPasswordResetEmail } from "./passwordResetEmailService";
+import { emailService } from "./email";
 
 const PASSWORD_SALT_ROUNDS = 12;
 const JWT_EXPIRES_IN = "7d";
@@ -244,7 +244,7 @@ export async function requestPasswordReset(body: ForgotPasswordRequestBody) {
   });
 
   try {
-    await sendPasswordResetEmail({
+    await emailService.sendPasswordReset({
       toEmail: user.email,
       code,
       expiresAt,

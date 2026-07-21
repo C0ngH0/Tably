@@ -14,7 +14,6 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@aws-sdk/client-ses": "^3.1085.0",
     "@aws-sdk/client-textract": "^3.1065.0",
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
@@ -25,7 +24,8 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "openai": "^6.42.0",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "resend": "^6.18.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
