@@ -28,45 +28,22 @@ const OPENAI_MODEL = "gpt-4o-mini";
 
 let openaiClient: OpenAI | null = null;
 
-function getOpenAIKeyStatus(value: string | undefined) {
-  if (!value) {
-    return {
-      exists: false,
-      startsWithSk: false,
-      hasMinimumLength: false,
-    };
-  }
-
-  return {
-    exists: true,
-    startsWithSk: value.startsWith("sk-"),
-    hasMinimumLength: value.length >= 20,
-  };
-}
-
 function getOpenAIClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not configured.");
   }
 
   if (!openaiClient) {
-    const keyStatus = getOpenAIKeyStatus(process.env.OPENAI_API_KEY);
-
-    console.log("[openaiReceiptRepairService] Instantiating OpenAI client");
-    console.log("[openaiReceiptRepairService] process.cwd():", process.cwd());
-    console.log(
-      "[openaiReceiptRepairService] OPENAI_API_KEY starts with sk-:",
-      keyStatus.startsWithSk,
-    );
-
-    if (!keyStatus.startsWithSk || !keyStatus.hasMinimumLength) {
+    if (!apiKey.startsWith("sk-") || apiKey.length < 20) {
       throw new Error(
-        "OPENAI_API_KEY looks malformed. Check server/.env and restart the server.",
+        "OPENAI_API_KEY is malformed.",
       );
     }
 
     openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey,
     });
   }
 

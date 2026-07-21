@@ -7,6 +7,8 @@ import {
   type ExpenseField,
 } from "@aws-sdk/client-textract";
 
+import { getSafeErrorDetails } from "../utils/safeError";
+
 export type DetectedReceiptField = {
   name: string;
   value: string;
@@ -27,18 +29,6 @@ let textractClient: TextractClient | null = null;
 
 function getTextractClient(): TextractClient {
   if (!textractClient) {
-    console.log("[textractService] Instantiating TextractClient");
-    console.log("[textractService] process.cwd():", process.cwd());
-    console.log("[textractService] AWS_REGION:", process.env.AWS_REGION);
-    console.log(
-      "[textractService] AWS_ACCESS_KEY_ID exists:",
-      Boolean(process.env.AWS_ACCESS_KEY_ID),
-    );
-    console.log(
-      "[textractService] AWS_SECRET_ACCESS_KEY exists:",
-      Boolean(process.env.AWS_SECRET_ACCESS_KEY),
-    );
-
     textractClient = new TextractClient({
       region: process.env.AWS_REGION || "us-east-1",
       credentials:
@@ -190,7 +180,7 @@ export async function extractReceiptWithTextract(
   } catch (analyzeError) {
     console.error(
       "[textractService] AnalyzeExpense failed; falling back to DetectDocumentText:",
-      analyzeError,
+      getSafeErrorDetails(analyzeError),
     );
   }
 

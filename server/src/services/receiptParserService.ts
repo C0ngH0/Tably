@@ -381,7 +381,7 @@ function parseReceiptFromDetectedFields(
 }
 
 /**
- * Deterministically parse Textract OCR text into SplitSnap's receipt contract.
+ * Deterministically parse Textract OCR text into Tably's receipt contract.
  * This intentionally favors predictable parsing over guessing.
  */
 export function parseReceiptFromRawText(rawText: string): ExtractedReceipt {

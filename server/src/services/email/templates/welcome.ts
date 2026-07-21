@@ -21,20 +21,20 @@ export function buildWelcomeEmail({
 
   return {
     to: toEmail,
-    subject: "Welcome to SplitSnap",
+    subject: "Welcome to Tably",
     text: [
-      "Welcome to SplitSnap",
+      "Welcome to Tably",
       "",
       greeting,
       "",
-      "Thanks for joining SplitSnap. You can now save and manage your split sessions.",
+      "Thanks for joining Tably. You can now save and manage your split sessions.",
     ].join("\n"),
     html: `
       <div style="font-family: Arial, sans-serif; color: #0f172a;">
-        <h1 style="color: #2563eb;">SplitSnap</h1>
+        <h1 style="color: #2563eb;">Tably</h1>
         <h2>Welcome</h2>
         <p>${escapedGreeting}</p>
-        <p>Thanks for joining SplitSnap. You can now save and manage your split sessions.</p>
+        <p>Thanks for joining Tably. You can now save and manage your split sessions.</p>
       </div>
     `,
   };

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 
 import { prisma } from "../db/prisma";
+import { getSafeErrorDetails } from "../utils/safeError";
 
 export type AuthenticatedUser = {
   id: string;
@@ -79,7 +80,10 @@ export async function requireAuth(
     };
     next();
   } catch (error) {
-    console.error("[authMiddleware] Token verification failed:", error);
+    console.error(
+      "[authMiddleware] Token verification failed:",
+      getSafeErrorDetails(error),
+    );
     res.status(401).json({ error: "Invalid or expired token." });
   }
 }

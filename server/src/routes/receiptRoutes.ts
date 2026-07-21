@@ -11,6 +11,7 @@ import {
 import { repairReceiptWithOpenAI } from "../services/openaiReceiptRepairService";
 import { parseReceiptFromTextract } from "../services/receiptParserService";
 import { extractReceiptWithTextract } from "../services/textractService";
+import { getSafeErrorDetails } from "../utils/safeError";
 
 const receiptRoutes = Router();
 const ocrRateLimiter = rateLimit({
@@ -44,7 +45,7 @@ receiptRoutes.post(
       }
 
       console.log(
-        `[receiptRoutes] Received image: ${validation.metadata.originalName} (${validation.metadata.mimeType}, ${validation.metadata.sizeBytes} bytes)`,
+        `[receiptRoutes] Received image (${validation.metadata.mimeType}, ${validation.metadata.sizeBytes} bytes)`,
       );
 
       const mockReceipt = await extractReceiptMock();
@@ -89,7 +90,7 @@ receiptRoutes.post(
           } catch (openAIError) {
             console.error(
               "[receiptRoutes] OpenAI repair failed; returning Textract parsed result:",
-              openAIError,
+              getSafeErrorDetails(openAIError),
             );
           }
         }
@@ -99,7 +100,7 @@ receiptRoutes.post(
       } catch (textractError) {
         console.error(
           "[receiptRoutes] Textract failed; returning mock receipt response:",
-          textractError,
+          getSafeErrorDetails(textractError),
         );
       }
 
@@ -111,7 +112,10 @@ receiptRoutes.post(
         extractionMethod: "mock-fallback",
       });
     } catch (error) {
-      console.error("Receipt extraction failed:", error);
+      console.error(
+        "[receiptRoutes] Receipt extraction failed:",
+        getSafeErrorDetails(error),
+      );
       res.status(500).json({
         error: "Failed to extract receipt data.",
       });

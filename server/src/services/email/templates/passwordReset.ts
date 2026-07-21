@@ -20,9 +20,9 @@ export function buildPasswordResetEmail({
 
   return {
     to: toEmail,
-    subject: "Reset your SplitSnap password",
+    subject: "Reset your Tably password",
     text: [
-      "SplitSnap Password Reset",
+      "Tably Password Reset",
       "",
       "Use this 6-digit reset code to choose a new password:",
       code,
@@ -33,7 +33,7 @@ export function buildPasswordResetEmail({
     ].join("\n"),
     html: `
       <div style="font-family: Arial, sans-serif; color: #0f172a;">
-        <h1 style="color: #2563eb;">SplitSnap</h1>
+        <h1 style="color: #2563eb;">Tably</h1>
         <h2>Password reset</h2>
         <p>Use this 6-digit reset code to choose a new password:</p>
         <p style="font-size: 28px; font-weight: 700; letter-spacing: 4px;">${code}</p>

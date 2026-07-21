@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../db/prisma";
+import { getSafeErrorDetails } from "../utils/safeError";
 import { emailService } from "./email";
 
 const PASSWORD_SALT_ROUNDS = 12;
@@ -250,7 +251,10 @@ export async function requestPasswordReset(body: ForgotPasswordRequestBody) {
       expiresAt,
     });
   } catch (error) {
-    console.error("[authService] Failed to send password reset email:", error);
+    console.error(
+      "[authService] Failed to send password reset email:",
+      getSafeErrorDetails(error),
+    );
   }
 
   return { message: PASSWORD_RESET_RESPONSE_MESSAGE };

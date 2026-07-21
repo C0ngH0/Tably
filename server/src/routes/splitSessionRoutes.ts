@@ -13,6 +13,7 @@ import {
   SplitSessionValidationError,
   updateSplitSession,
 } from "../services/splitSessionService";
+import { getSafeErrorDetails } from "../utils/safeError";
 
 const splitSessionRoutes = Router();
 
@@ -41,7 +42,10 @@ function sendSplitSessionError(error: unknown, res: Response) {
     return;
   }
 
-  console.error("[splitSessionRoutes] Request failed:", error);
+  console.error(
+    "[splitSessionRoutes] Request failed:",
+    getSafeErrorDetails(error),
+  );
   res.status(500).json({ error: "Failed to process split session request." });
 }
 

@@ -8,6 +8,7 @@ import {
   requestPasswordReset,
   resetPassword,
 } from "../services/authService";
+import { getSafeErrorDetails } from "../utils/safeError";
 
 const authRoutes = Router();
 const authRateLimiter = rateLimit({
@@ -38,7 +39,10 @@ function sendAuthError(error: unknown, res: Response) {
     return;
   }
 
-  console.error("[authRoutes] Request failed:", error);
+  console.error(
+    "[authRoutes] Request failed:",
+    getSafeErrorDetails(error),
+  );
   res.status(500).json({ error: "Failed to process authentication request." });
 }
 

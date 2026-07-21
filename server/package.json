@@ -1,6 +1,7 @@
 {
-  "name": "splitsnap-server",
+  "name": "tably-server",
   "version": "1.0.0",
+  "description": "Tably API server for authentication, receipt extraction, and bill splitting.",
   "private": true,
   "main": "dist/index.js",
   "scripts": {
