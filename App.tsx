@@ -747,7 +747,7 @@ export default function App() {
     try {
       await Share.share({
         message: formatSessionShareText(session),
-        title: "SplitSnap Results",
+        title: "Tably Results",
       });
     } catch {
       Alert.alert("Unable to share", "Something went wrong while sharing results.");
@@ -755,9 +755,6 @@ export default function App() {
   };
 
   const saveCurrentSplit = async () => {
-    console.log("[splitHistory] Save Split pressed");
-    console.log("[splitHistory] session exists:", Boolean(session));
-
     if (!session) {
       return;
     }
@@ -765,22 +762,10 @@ export default function App() {
     const now = new Date().toISOString();
     const sessionToSave = normalizeSessionForSave(session, now);
 
-    console.log("[splitHistory] sessionToSave metadata:", {
-      id: sessionToSave.id,
-      title: sessionToSave.title,
-      createdAt: sessionToSave.createdAt,
-      updatedAt: sessionToSave.updatedAt,
-      peopleCount: sessionToSave.people.length,
-      itemCount: sessionToSave.items.length,
-      finalTotal: sessionToSave.summary.finalTotal,
-    });
-
     try {
-      console.log("[splitHistory] Calling saveSplitSession");
       const savedSession = await saveSplitSession(sessionToSave);
       setSession(savedSession);
       const saved = await getSavedSplitSessions();
-      console.log("[splitHistory] Saved sessions after save:", saved.length);
       setSavedSessions(saved);
       setSavedStatus("Split saved.");
       setError(null);
@@ -859,7 +844,7 @@ export default function App() {
         >
           <View style={styles.headerRow}>
             <View style={styles.headerText}>
-              <Text style={styles.logo}>SplitSnap</Text>
+              <Text style={styles.logo}>Tably</Text>
               <Text style={styles.subtitle}>
                 Choose a split mode, add participants, then calculate what
                 everyone owes.

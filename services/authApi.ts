@@ -35,7 +35,7 @@ async function submitAuthRequest(
   } catch (error) {
     console.error("[authApi] Network request failed:", error);
     throw new Error(
-      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
+      `Could not reach the Tably API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 
@@ -86,7 +86,7 @@ async function submitPasswordResetRequest(
   } catch (error) {
     console.error("[authApi] Password reset request failed:", error);
     throw new Error(
-      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
+      `Could not reach the Tably API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 

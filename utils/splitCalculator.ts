@@ -403,7 +403,7 @@ export function validateSplitInput(
 /** Build plain-text summary for the native share sheet. */
 export function formatSessionShareText(session: SplitSession): string {
   const lines = [
-    "SplitSnap Results",
+    "Tably Results",
     `Mode: ${MODE_LABELS[session.mode]}`,
     "",
     "Receipt Summary",

@@ -1,6 +1,7 @@
 {
-  "name": "splitsnap",
+  "name": "tably",
   "version": "1.0.0",
+  "description": "Tably mobile app for receipt scanning and bill splitting.",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

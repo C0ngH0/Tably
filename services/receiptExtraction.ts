@@ -69,15 +69,12 @@ function createReceiptImageFormData(imageUri: string): FormData {
 }
 
 /**
- * Extract receipt data by calling the SplitSnap backend.
- * AWS Textract will be added on the server in a future phase.
+ * Extract receipt data by calling the Tably backend.
  */
 export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt> {
   if (!imageUri) {
     throw new Error("A receipt image is required for extraction.");
   }
-
-  console.log("[receiptExtraction] Calling endpoint:", RECEIPT_EXTRACT_ENDPOINT);
 
   let response: Response;
 
@@ -97,7 +94,7 @@ export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt
     );
 
     throw new Error(
-      `Could not reach the SplitSnap API at ${API_BASE_URL}. Please check your connection and try again.`,
+      `Could not reach the Tably API at ${API_BASE_URL}. Please check your connection and try again.`,
     );
   }
 
@@ -135,7 +132,7 @@ export async function extractReceipt(imageUri: string): Promise<ExtractedReceipt
   }
 
   if (!isExtractedReceipt(data)) {
-    console.error("[receiptExtraction] Invalid response shape:", data);
+    console.error("[receiptExtraction] Server returned an invalid response shape.");
     throw new Error("Server returned an invalid receipt format.");
   }
 

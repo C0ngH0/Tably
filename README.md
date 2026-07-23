@@ -115,7 +115,7 @@ Split Engine
 | OCR | AWS Textract |
 | AI | OpenAI API |
 | Storage | Amazon S3 |
-| Email | Amazon SES |
+| Email | Resend |
 | DNS | Cloudflare |
 | Infrastructure | AWS |
 
@@ -159,7 +159,7 @@ User
 
 ### Infrastructure
 
-✅ AWS SES integration
+✅ Resend email integration
 ✅ Cloudflare DNS configuration
 ✅ PostgreSQL deployment
 ✅ Prisma integration

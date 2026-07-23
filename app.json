@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SplitSnap",
+    "name": "Tably",
     "slug": "SplitSnap",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,8 +30,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "SplitSnap uses your photo library so you can attach receipt images.",
-          "cameraPermission": "SplitSnap uses your camera so you can photograph receipts.",
+          "photosPermission": "Tably uses your photo library so you can attach receipt images.",
+          "cameraPermission": "Tably uses your camera so you can photograph receipts.",
           "microphonePermission": false
         }
       ],

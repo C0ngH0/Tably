@@ -25,35 +25,19 @@ function isUuid(value: string): boolean {
 }
 
 export async function getSavedSplitSessions(): Promise<SplitSession[]> {
-  const sessions = sortByUpdatedAtDesc(
+  return sortByUpdatedAtDesc(
     (await getSplitSessions()).map(apiDtoToSplitSession),
   );
-  console.log("[splitStorage] Loaded saved sessions:", sessions.length);
-  return sessions;
 }
 
 export async function saveSplitSession(
   session: SplitSession,
 ): Promise<SplitSession> {
-  console.log("[splitStorage] Saving session:", {
-    id: session.id,
-    title: session.title,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-  });
-
   const savedDto = isUuid(session.id)
     ? await updateSplitSession(session.id, splitSessionToUpdateRequest(session))
     : await createSplitSession(splitSessionToCreateRequest(session));
-  const savedSession = apiDtoToSplitSession(savedDto);
 
-  console.log("[splitStorage] Saved session:", {
-    id: savedSession.id,
-    title: savedSession.title,
-    updatedAt: savedSession.updatedAt,
-  });
-
-  return savedSession;
+  return apiDtoToSplitSession(savedDto);
 }
 
 export async function deleteSplitSession(sessionId: string): Promise<void> {
