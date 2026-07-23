@@ -63,19 +63,21 @@ Built with React Native, PostgreSQL, AWS, and modern LLM infrastructure.
 ## Architecture
 
 ```text
-┌──────────────────────┐
-│  React Native Client │
-└──────────┬───────────┘
-           │ HTTPS
-           ▼
-┌──────────────────────┐
-│ Express API Backend  │
-└──────────┬───────────┘
-           │ Prisma ORM
-           ▼
-┌──────────────────────┐
-│ PostgreSQL Database  │
-└──────────────────────┘
+React Native App
+        │
+      HTTPS
+        │
+    Cloudflare
+        │
+HTTPS (Origin CA)
+        │
+Elastic Beanstalk
+        │
+  Node / Express
+        │
+    Prisma ORM
+        │
+    PostgreSQL
 ```
 
 Supporting services:
@@ -269,7 +271,30 @@ Current evaluation areas include:
 Coming soon.
 
 ---
+## Live API
 
+https://api.usetably.org
+---
+
+## Tech Stack
+
+Frontend
+- React Native (Expo)
+- TypeScript
+
+Backend
+- Node.js
+- Express
+- Prisma
+- PostgreSQL
+
+Cloud
+- AWS Elastic Beanstalk
+- AWS SSM Parameter Store
+- AWS Textract
+- Cloudflare DNS + Proxy
+- Cloudflare Origin CA
+---
 ## License
 
 MIT
